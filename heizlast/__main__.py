@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .abgleich import berechne_abgleich
 from .bericht import erzeuge_html
+from .protokoll import erzeuge_protokoll_html
 from .heizlast import berechne_gebaeude
 from .zahlen import de
 
@@ -46,6 +47,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Heizlast (DIN EN 12831-1, vereinfacht) und hydraulischer Abgleich (Verfahren B)")
     ap.add_argument("projekt", help="Projektdatei (JSON)")
     ap.add_argument("--ausgabe", help="Zielordner (Standard: neben der Projektdatei)")
+    ap.add_argument("--einstellprotokoll", action="store_true", help="raumweises Einstellprotokoll der Ventile (Dateiname *_einstellprotokoll)")
     ap.add_argument("--nur-heizlast", action="store_true", help="nur Heizlastberechnung ohne hydraulischen Abgleich (Dateiname *_heizlast)")
     args = ap.parse_args(argv)
 
@@ -56,9 +58,11 @@ def main(argv=None):
 
     ziel = Path(args.ausgabe) if args.ausgabe else quelle.parent
     ziel.mkdir(parents=True, exist_ok=True)
-    name = "heizlast" if args.nur_heizlast else "bericht"
+    name = "einstellprotokoll" if args.einstellprotokoll else "heizlast" if args.nur_heizlast else "bericht"
     html_datei = ziel / f"{quelle.stem}_{name}.html"
-    html_datei.write_text(erzeuge_html(projekt, geb, abg, nur_heizlast=args.nur_heizlast), encoding="utf-8")
+    html = (erzeuge_protokoll_html(projekt, geb, abg) if args.einstellprotokoll
+            else erzeuge_html(projekt, geb, abg, nur_heizlast=args.nur_heizlast))
+    html_datei.write_text(html, encoding="utf-8")
     pdf_datei = ziel / f"{quelle.stem}_{name}.pdf"
     pdf_ok = als_pdf(html_datei, pdf_datei)
 
