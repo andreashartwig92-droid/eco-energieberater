@@ -108,7 +108,10 @@ def erzeuge_html(projekt, geb, abg, datum=None, nur_heizlast=False):
       kacheln += [
         (f"{de(abg.theta_V, 1)} / {de(abg.theta_R_misch, 1)} °C", "Auslegung Vorlauf / Rücklauf (Mischtemperatur)"),
         (f"{de(abg.theta_V_bestand, 1)} °C", "nötiger Vorlauf mit allen Bestandsheizkörpern"),
-        (f"{len(getauscht)} von {len(abg.heizkoerper)}", f"Heizkörper zu tauschen für ≤ {de(abg.theta_V_ziel)} °C Vorlauf"),
+        ((f"{sum(h.unterdeckt for h in abg.heizkoerper)} von {len(abg.heizkoerper)}",
+          f"Heizkörper mit Unterdeckung bei {de(abg.theta_V)} °C Vorlauf (Bestand bleibt)")
+         if not abg.tausch else
+         (f"{len(getauscht)} von {len(abg.heizkoerper)}", f"Heizkörper zu tauschen für ≤ {de(abg.theta_V_ziel)} °C Vorlauf")),
         (f"{de(abg.m_gesamt)} l/h", "Volumenstrom gesamt"),
         (f"{de(abg.foerderhoehe_m, 2)} m", f"Förderhöhe Heizkreispumpe ({de(abg.dp_verfuegbar / 100 + abg.dp_erzeuger / 100)} mbar)"),
       ]
@@ -190,18 +193,28 @@ def erzeuge_html(projekt, geb, abg, datum=None, nur_heizlast=False):
                      f"Damit die Wärmepumpe mit höchstens {de(abg.theta_V_ziel)} °C auskommt, sind {len(getauscht)} Heizkörper zu tauschen "
                      f"(orange markiert). Der Abgleich ist für <b>{de(abg.theta_V, 1)} °C</b> Vorlauf mit den neuen Heizkörpern gerechnet.</p>")
         else:
-            o.append(f"<p>Alle Bestandsheizkörper reichen bei <b>{de(abg.theta_V, 1)} °C</b> Vorlauf aus.</p>")
+            unter = [h for h in abg.heizkoerper if h.unterdeckt]
+            if unter:
+                o.append(f"<p>Die Bestandsheizkörper bleiben. Der Abgleich ist für <b>{de(abg.theta_V, 1)} °C</b> Vorlauf gerechnet. "
+                         f"Bei der Norm-Außentemperatur erreichen {len(unter)} von {len(abg.heizkoerper)} Heizkörpern ihre Raumheizlast nicht "
+                         "(orange markiert, Ventil voll öffnen). Mit allen Bestandsheizkörpern wären "
+                         f"<b>{de(abg.theta_V_bestand, 1)} °C</b> Vorlauf nötig. Die Spalte „reicht bis θ<sub>a</sub>“ zeigt, bis zu welcher "
+                         "Außentemperatur der Raum bei diesem Vorlauf noch warm wird.</p>")
+            else:
+                o.append(f"<p>Alle Bestandsheizkörper reichen bei <b>{de(abg.theta_V, 1)} °C</b> Vorlauf aus.</p>")
 
         o.append("<h3>3.1 Heizkörper – Leistung und Temperaturen</h3>")
         zeilen, kl = [], []
         for h in abg.heizkoerper:
-            zeilen.append((_t(h.id), _t(h.raum), _t(h.beschreibung), de(h.phi_N), de(h.phi_soll), de(h.theta_V_erf, 1),
-                           de(h.phi_N_ausl) + (" neu" if h.getauscht else ""), de(h.theta_R, 1), de(h.spreizung, 1), de(h.m)))
-            kl.append("tausch" if h.getauscht else "")
+            zeilen.append((_t(h.id), _t(h.raum) + f"<br><small>{_t(h.beschreibung)}</small>", de(h.phi_N), de(h.phi_soll), de(h.theta_V_erf, 1),
+                           de(h.phi_N_ausl) + (" neu" if h.getauscht else ""), de(h.phi_ist), de(h.theta_R, 1), de(h.spreizung, 1),
+                           de(h.m), de(h.theta_a_grenz, 1) if h.unterdeckt else "reicht"))
+            kl.append("tausch" if h.getauscht or h.unterdeckt else "")
         o.append(_tabelle(
-            ["HK", "Raum", "Heizkörper Bestand", "Φ<sub>N</sub> Bestand W", "Φ<sub>soll</sub> W",
-             f"VL nötig °C (σ = {de(abg.spreizung_ausl)} K)", "Φ<sub>N</sub> Auslegung W", "RL °C", "Spreizung K", "V̇ l/h"],
-            zeilen, klasse="klein", zahlspalten=(3, 4, 5, 6, 7, 8, 9), zeilenklassen=kl))
+            ["HK", "Raum / Heizkörper Bestand", "Φ<sub>N</sub> Bestand W", "Φ<sub>soll</sub> W",
+             f"VL nötig °C (σ = {de(abg.spreizung_ausl)} K)", "Φ<sub>N</sub> Auslegung W", "Φ<sub>ist</sub> W", "RL °C", "Spreizung K",
+             "V̇ l/h", "reicht bis θ<sub>a</sub> °C"],
+            zeilen, klasse="klein", zahlspalten=(2, 3, 4, 5, 6, 7, 8, 9, 10), zeilenklassen=kl))
 
         katalog = projekt.get("ventile", {})
         o.append("<h3>3.2 Druckverluste, Ventile und Voreinstellung</h3>")

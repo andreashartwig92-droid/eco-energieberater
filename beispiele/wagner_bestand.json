@@ -1,0 +1,575 @@
+{
+ "projekt": {
+  "titel": "Einfamilienhaus Wagner – Bestandsheizkörper bleiben",
+  "adresse": "Könitzer Str 32, 07338 Kaulsdorf",
+  "baujahr": 1975,
+  "beschreibung": "Bauherr: Michael Wolfgang Wagner · 1 Wohneinheit, BEG-Zuschuss Heizung (KfW 458, Zuschussreferenz 458000000995142, Zusage 25.09.2026). Baujahr 1975, Fenster 2005 erneuert. 2 Geschosse (EG/OG), Treppenhaus/Flur und Abstellkammer unbeheizt. Zweirohrheizung mit Plattenheizkörpern und Danfoss-Thermostatventilen (Axial 1/2″). Geplant: Wärmepumpe mit Bestandsheizkörpern.",
+  "warnung": "VORLÄUFIG – Heizlast aus den Grundrissen (EG/OG) berechnet. NICHT aus der Heizlast des Kunden: angenommen sind U-Werte der Bauteile (Wand, Decken; Fenster nach Baujahr/Erneuerung 2005), Norm-Außentemperatur −14 °C (Näherung für PLZ 07338), Fenstergrößen im OG, Luftdichtheit und Dachraum-Dämmung. Normleistungen der Heizkörper sind Katalog-Näherungswerte, Leitungslängen geschätzt. Vor Verwendung ersetzen."
+ },
+ "klima": {
+  "theta_e": -14.0,
+  "theta_m_e": 8.0,
+  "quelle": "Näherung für PLZ 07338 (Kaulsdorf, Thüringen) – Wert nach DIN/TS 12831-1 prüfen"
+ },
+ "bauteile": {
+  "AW": {
+   "bezeichnung": "Außenwand Mauerwerk ca. 36,5 cm, Baujahr 1975, ungedämmt (Annahme)",
+   "U": 1.2
+  },
+  "FE": {
+   "bezeichnung": "Fenster Kunststoff, 2-fach-Wärmeschutzverglasung (2005 erneuert)",
+   "U": 1.3
+  },
+  "BT": {
+   "bezeichnung": "Balkontür (2005 erneuert, obere Hälfte verglast, Annahme)",
+   "U": 1.6
+  },
+  "KD": {
+   "bezeichnung": "Kellerdecke, ungedämmt (Annahme: unbeheizter Keller)",
+   "U": 1.0
+  },
+  "OGD": {
+   "bezeichnung": "Decke zum unbeheizten Dachraum, Baujahr 1975, ungedämmt (Annahme)",
+   "U": 0.8
+  },
+  "IW": {
+   "bezeichnung": "Innenwand 11,5 cm zu unbeheiztem Bereich",
+   "U": 2.2
+  },
+  "ID": {
+   "bezeichnung": "Geschossdecke zwischen EG und OG",
+   "U": 1.1
+  }
+ },
+ "raeume": [
+  {
+   "name": "Wohnzimmer",
+   "geschoss": "EG",
+   "theta_i": 20,
+   "A": 21.8,
+   "h": 2.2,
+   "e": 0.03,
+   "bauteile": [
+    {
+     "typ": "AW",
+     "text": "Süd (Fenster-Seite)",
+     "l": 4.9,
+     "h": 2.45,
+     "oeffnungen": [
+      {
+       "typ": "FE",
+       "text": "2 Fenster",
+       "l": 0.98,
+       "h": 1.22,
+       "anzahl": 2
+      }
+     ]
+    },
+    {
+     "typ": "AW",
+     "text": "West",
+     "l": 4.45,
+     "h": 2.45
+    },
+    {
+     "typ": "AW",
+     "text": "Ost",
+     "l": 4.45,
+     "h": 2.45
+    },
+    {
+     "typ": "KD",
+     "text": "Fußboden",
+     "A": 21.8,
+     "an": "Keller"
+    },
+    {
+     "typ": "IW",
+     "text": "zu Flur unbeheizt",
+     "l": 2.4,
+     "h": 2.45,
+     "an": "Flur"
+    }
+   ]
+  },
+  {
+   "name": "Küche (EG)",
+   "geschoss": "EG",
+   "theta_i": 20,
+   "A": 9.3,
+   "h": 2.2,
+   "e": 0.03,
+   "bauteile": [
+    {
+     "typ": "AW",
+     "text": "Ost",
+     "l": 3.94,
+     "h": 2.45,
+     "oeffnungen": [
+      {
+       "typ": "FE",
+       "text": "Fenster",
+       "l": 1.22,
+       "h": 1.12
+      }
+     ]
+    },
+    {
+     "typ": "KD",
+     "text": "Fußboden",
+     "A": 9.3,
+     "an": "Keller"
+    },
+    {
+     "typ": "IW",
+     "text": "zu Flur unbeheizt",
+     "l": 2.37,
+     "h": 2.45,
+     "an": "Flur"
+    }
+   ]
+  },
+  {
+   "name": "Schlafzimmer",
+   "geschoss": "EG",
+   "theta_i": 20,
+   "A": 16.0,
+   "h": 2.17,
+   "e": 0.03,
+   "bauteile": [
+    {
+     "typ": "AW",
+     "text": "Nord (Schlafzimmer)",
+     "l": 2.59,
+     "h": 2.45,
+     "oeffnungen": [
+      {
+       "typ": "FE",
+       "text": "Fenster",
+       "l": 1.1,
+       "h": 1.15
+      }
+     ]
+    },
+    {
+     "typ": "AW",
+     "text": "Ost",
+     "l": 4.52,
+     "h": 2.45
+    },
+    {
+     "typ": "AW",
+     "text": "Nord (Nebenraum 4,3 m², über Durchgang mitbeheizt)",
+     "l": 2.0,
+     "h": 2.45,
+     "oeffnungen": [
+      {
+       "typ": "FE",
+       "text": "Fenster",
+       "l": 1.1,
+       "h": 1.15
+      }
+     ]
+    },
+    {
+     "typ": "AW",
+     "text": "West (Nebenraum)",
+     "l": 2.17,
+     "h": 2.45
+    },
+    {
+     "typ": "KD",
+     "text": "Fußboden",
+     "A": 16.0,
+     "an": "Keller"
+    },
+    {
+     "typ": "IW",
+     "text": "zu Flur unbeheizt",
+     "l": 1.0,
+     "h": 2.45,
+     "an": "Flur"
+    }
+   ]
+  },
+  {
+   "name": "Bad",
+   "geschoss": "EG",
+   "theta_i": 24,
+   "A": 7.9,
+   "h": 2.22,
+   "e": 0.02,
+   "bauteile": [
+    {
+     "typ": "AW",
+     "text": "West",
+     "l": 3.55,
+     "h": 2.45,
+     "oeffnungen": [
+      {
+       "typ": "FE",
+       "text": "Fenster",
+       "l": 1.0,
+       "h": 0.84
+      }
+     ]
+    },
+    {
+     "typ": "KD",
+     "text": "Fußboden",
+     "A": 7.9,
+     "an": "Keller"
+    },
+    {
+     "typ": "IW",
+     "text": "zu Schlafzimmer",
+     "l": 2.55,
+     "h": 2.45,
+     "an": 20
+    },
+    {
+     "typ": "IW",
+     "text": "zu Flur unbeheizt",
+     "l": 2.24,
+     "h": 2.45,
+     "an": "Flur"
+    },
+    {
+     "typ": "ID",
+     "text": "Decke zu OG",
+     "A": 7.9,
+     "an": 20
+    }
+   ]
+  },
+  {
+   "name": "Kinderzimmer links",
+   "geschoss": "OG",
+   "theta_i": 20,
+   "A": 9.0,
+   "h": 2.65,
+   "e": 0.03,
+   "bauteile": [
+    {
+     "typ": "AW",
+     "text": "Nord",
+     "l": 2.41,
+     "h": 2.85,
+     "oeffnungen": [
+      {
+       "typ": "FE",
+       "text": "Fenster",
+       "l": 1.2,
+       "h": 1.3
+      }
+     ]
+    },
+    {
+     "typ": "AW",
+     "text": "West",
+     "l": 3.75,
+     "h": 2.85
+    },
+    {
+     "typ": "IW",
+     "text": "zu Flur unbeheizt",
+     "l": 2.41,
+     "h": 2.85,
+     "an": "Flur"
+    },
+    {
+     "typ": "OGD",
+     "text": "Decke",
+     "A": 9.0,
+     "an": "Dachraum"
+    }
+   ]
+  },
+  {
+   "name": "Kinderzimmer rechts",
+   "geschoss": "OG",
+   "theta_i": 20,
+   "A": 12.3,
+   "h": 2.6,
+   "e": 0.03,
+   "bauteile": [
+    {
+     "typ": "AW",
+     "text": "Nord",
+     "l": 2.57,
+     "h": 2.8,
+     "oeffnungen": [
+      {
+       "typ": "BT",
+       "text": "Balkontür (Annahme: 2005 erneuert)",
+       "l": 0.9,
+       "h": 2.1
+      }
+     ]
+    },
+    {
+     "typ": "AW",
+     "text": "Ost",
+     "l": 4.79,
+     "h": 2.8
+    },
+    {
+     "typ": "IW",
+     "text": "zu Abstellkammer unbeheizt",
+     "l": 1.55,
+     "h": 2.8,
+     "an": "Abstellkammer"
+    },
+    {
+     "typ": "IW",
+     "text": "zu Flur unbeheizt",
+     "l": 1.0,
+     "h": 2.8,
+     "an": "Flur"
+    },
+    {
+     "typ": "OGD",
+     "text": "Decke",
+     "A": 12.3,
+     "an": "Dachraum"
+    }
+   ]
+  },
+  {
+   "name": "Heimbüro",
+   "geschoss": "OG",
+   "theta_i": 20,
+   "A": 13.6,
+   "h": 2.46,
+   "e": 0.03,
+   "bauteile": [
+    {
+     "typ": "AW",
+     "text": "Süd",
+     "l": 2.68,
+     "h": 2.66,
+     "oeffnungen": [
+      {
+       "typ": "FE",
+       "text": "Fenster",
+       "l": 1.2,
+       "h": 1.3
+      }
+     ]
+    },
+    {
+     "typ": "AW",
+     "text": "Ost",
+     "l": 5.08,
+     "h": 2.66
+    },
+    {
+     "typ": "IW",
+     "text": "zu Abstellkammer unbeheizt",
+     "l": 1.55,
+     "h": 2.66,
+     "an": "Abstellkammer"
+    },
+    {
+     "typ": "OGD",
+     "text": "Decke",
+     "A": 13.6,
+     "an": "Dachraum"
+    }
+   ]
+  },
+  {
+   "name": "Küche (OG)",
+   "geschoss": "OG",
+   "theta_i": 20,
+   "A": 11.5,
+   "h": 2.52,
+   "e": 0.03,
+   "bauteile": [
+    {
+     "typ": "AW",
+     "text": "Süd",
+     "l": 2.3,
+     "h": 2.72,
+     "oeffnungen": [
+      {
+       "typ": "FE",
+       "text": "Fenster",
+       "l": 1.2,
+       "h": 1.3
+      }
+     ]
+    },
+    {
+     "typ": "AW",
+     "text": "West",
+     "l": 5.0,
+     "h": 2.72
+    },
+    {
+     "typ": "IW",
+     "text": "zu Flur unbeheizt",
+     "l": 2.3,
+     "h": 2.72,
+     "an": "Flur"
+    },
+    {
+     "typ": "OGD",
+     "text": "Decke",
+     "A": 11.5,
+     "an": "Dachraum"
+    }
+   ]
+  }
+ ],
+ "hydraulik": {
+  "system": "Zweirohrheizung, Heizkörper mit Thermostatventilen",
+  "spreizung_auslegung": 7.0,
+  "theta_V_ziel": 55.0,
+  "tausch_kritische": false,
+  "R_Pa_pro_m": 100,
+  "zuschlag_einzelwiderstaende": 0.3,
+  "dp_ventil_min_mbar": 50,
+  "dp_erzeuger_mbar": 0,
+  "dp_erzeuger_hinweis": "Annahme: Trennung über Pufferspeicher/hydraulische Weiche",
+  "ventiltyp": "Danfoss Thermostatventile (8 Stück, Typ angenommen); neue Heizkörper Kermi x2 Profil-V mit werkseitig voreingestelltem Ventileinsatz",
+  "pumpe_reserve": 0.1,
+  "theta_V_fest": 55.0,
+  "spreizung_min": 3.0
+ },
+ "heizkoerper": [
+  {
+   "id": "HK-EG-01",
+   "raum": "Wohnzimmer",
+   "beschreibung": "Typ 22, 600 × 1400",
+   "phi_N": 1650,
+   "n": 1.3,
+   "L_einfach": 10,
+   "ventil": "danfoss"
+  },
+  {
+   "id": "HK-EG-02",
+   "raum": "Wohnzimmer",
+   "beschreibung": "Typ 22, 600 × 1400",
+   "phi_N": 1650,
+   "n": 1.3,
+   "L_einfach": 12,
+   "ventil": "danfoss"
+  },
+  {
+   "id": "HK-EG-03",
+   "raum": "Küche (EG)",
+   "beschreibung": "Typ 22, 600 × 600",
+   "phi_N": 710,
+   "n": 1.3,
+   "L_einfach": 8,
+   "ventil": "danfoss"
+  },
+  {
+   "id": "HK-EG-04",
+   "raum": "Schlafzimmer",
+   "beschreibung": "Typ 22, 600 × 2000",
+   "phi_N": 2360,
+   "n": 1.3,
+   "L_einfach": 9,
+   "ventil": "danfoss"
+  },
+  {
+   "id": "HK-EG-05",
+   "raum": "Bad",
+   "beschreibung": "Typ 22, 900 × 700",
+   "phi_N": 1190,
+   "n": 1.3,
+   "L_einfach": 7,
+   "ventil": "danfoss"
+  },
+  {
+   "id": "HK-OG-01",
+   "raum": "Kinderzimmer links",
+   "beschreibung": "Typ 20, 600 × 1000, Danfoss-Ventil axial 1/2″",
+   "phi_N": 800,
+   "n": 1.3,
+   "L_einfach": 14,
+   "ventil": "danfoss"
+  },
+  {
+   "id": "HK-OG-02",
+   "raum": "Kinderzimmer rechts",
+   "beschreibung": "Typ 22, 600 × 1800 (neu)",
+   "phi_N": 2125,
+   "n": 1.3,
+   "L_einfach": 16,
+   "ventil": "kermi"
+  },
+  {
+   "id": "HK-OG-03",
+   "raum": "Heimbüro",
+   "beschreibung": "Typ 22, 600 × 1400",
+   "phi_N": 1650,
+   "n": 1.3,
+   "L_einfach": 15,
+   "ventil": "danfoss"
+  },
+  {
+   "id": "HK-OG-04",
+   "raum": "Küche (OG)",
+   "beschreibung": "Typ 20, 600 × 1400, Danfoss-Ventil axial 1/2″",
+   "phi_N": 1120,
+   "n": 1.3,
+   "L_einfach": 17,
+   "ventil": "danfoss"
+  }
+ ],
+ "ventile": {
+  "danfoss": {
+   "kurz": "Danfoss RA-N 15",
+   "bezeichnung": "Danfoss Thermostatventil (8 Stück vorhanden), Typ angenommen RA-N 15",
+   "stufen": {
+    "1": 0.04,
+    "2": 0.09,
+    "3": 0.15,
+    "4": 0.22,
+    "5": 0.3,
+    "6": 0.38,
+    "7": 0.45,
+    "N": 0.73
+   },
+   "hinweis": "Ventiltyp nicht aufgenommen, RA-N 15 angenommen. kv-Werte (Xp = 2 K) sind NICHT aus dem Datenblatt geprüft (Datenblatt war nicht abrufbar) – vor Einstellung mit dem Danfoss-Datenblatt abgleichen. Einstellwerte in 0,5er-Schritten, Zwischenwerte linear interpoliert."
+  },
+  "kermi": {
+   "kurz": "Kermi x2 Profil-V",
+   "bezeichnung": "Kermi therm-x2 Profil-V mit Ventileinsatz",
+   "hinweis": "Werkseitig auf die Heizkörperleistung voreingestellt. Zur Kontrolle ist der erforderliche kv-Wert je Heizkörper berechnet; bei der Bestellung Auslegungsleistung (Φ soll), Volumenstrom und Vorlauf/Rücklauf angeben."
+  }
+ },
+ "lueftung": {
+  "art": "freie Lüftung (Fensterlüftung)",
+  "n50": 4.0,
+  "n50_quelle": "Annahme, Bestand ohne Messung",
+  "epsilon": 1.0,
+  "n_min_standard": 0.5
+ },
+ "waermebruecken": {
+  "delta_U": 0.1,
+  "quelle": "pauschal für Bestand ohne Nachweis"
+ },
+ "aufheizzuschlag_W_m2": 0.0,
+ "angrenzend": {
+  "Flur": {
+   "b_u": 0.5,
+   "hinweis": "unbeheizter Flur / Treppenhaus"
+  },
+  "Abstellkammer": {
+   "b_u": 0.5,
+   "hinweis": "unbeheizte Abstellkammer OG"
+  },
+  "Keller": {
+   "b_u": 0.6,
+   "hinweis": "unbeheizter Keller (Annahme)"
+  },
+  "Dachraum": {
+   "b_u": 0.9,
+   "hinweis": "unbeheizter Dachraum (Annahme)"
+  }
+ }
+}

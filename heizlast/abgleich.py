@@ -96,6 +96,9 @@ class HKErgebnis:
     dp_rohr: float = 0.0  # Pa
     dp_ventil: float = 0.0  # Pa
     kv: float = 0.0
+    phi_ist: float = 0.0  # tatsächliche Leistung bei Auslegungsvorlauf (< phi_soll bei Unterdeckung)
+    unterdeckt: bool = False
+    theta_a_grenz: float = 0.0  # Außentemperatur, bis zu der der Heizkörper bei konstantem Vorlauf reicht
     ventil: str = ""  # Schlüssel im Ventilkatalog
     einstellung: str = ""  # Voreinstellung bzw. "werkseitig"
     kv_ist: float = 0.0
@@ -197,14 +200,28 @@ def berechne_abgleich(projekt, gebaeude):
         for h in kritisch:
             h.getauscht = True
             h.phi_N_ausl = aufrunden(normleistung_fuer(h.phi_soll, h.n, theta_V, sigma, h.theta_i), 10.0)
+    elif "theta_V_fest" in hyd:
+        theta_V = float(hyd["theta_V_fest"])
     else:
         theta_V = theta_V_bestand
 
+    sigma_min = float(hyd.get("spreizung_min", 3.0))
+    theta_e = projekt.get("klima", {}).get("theta_e")
     for h in erg:
         dT_req = dt_log_erforderlich(h.phi_soll, h.phi_N_ausl, h.n)
         h.theta_R = ruecklauf_bei_vorlauf(dT_req, theta_V, h.theta_i)
+        if h.theta_R is None or theta_V - h.theta_R < sigma_min:
+            # Heizkörper zu klein für diesen Vorlauf: Ventil voll offen, Leistung begrenzt
+            h.unterdeckt = True
+            h.theta_R = theta_V - sigma_min
+            h.phi_ist = leistung(h.phi_N_ausl, h.n, theta_V, h.theta_R, h.theta_i)
+        else:
+            h.phi_ist = h.phi_soll
         h.spreizung = theta_V - h.theta_R
-        h.m = h.phi_soll / (C_WASSER * h.spreizung)
+        h.m = h.phi_ist / (C_WASSER * h.spreizung)
+        cap = leistung(h.phi_N_ausl, h.n, theta_V, theta_V - sigma, h.theta_i)
+        if theta_e is not None:
+            h.theta_a_grenz = h.theta_i - (h.theta_i - theta_e) * min(1.0, cap / h.phi_soll)
         h.dp_rohr = 2.0 * h.L * R * (1.0 + z)
 
     dp_verf = max(h.dp_rohr for h in erg) + dp_tv_min
@@ -212,9 +229,12 @@ def berechne_abgleich(projekt, gebaeude):
         h.dp_ventil = dp_verf - h.dp_rohr
         h.kv = (h.m / 1000.0) / math.sqrt(h.dp_ventil / 1e5)
         hinweise = []
+        if h.unterdeckt:
+            hinweise.append(f"Unterdeckung: nur {de(h.phi_ist)} von {de(h.phi_soll)} W bei {de(theta_V)} °C Vorlauf "
+                            f"({de(100 * h.phi_ist / h.phi_soll)} %), Ventil voll öffnen")
         if h.getauscht:
             hinweise.append(f"Tausch: neuer Heizkörper mit mind. {de(h.phi_N_ausl)} W Normleistung (75/65/20)")
-        elif h in kritisch:
+        elif h in kritisch and not h.unterdeckt:
             hinweise.append(f"für {de(theta_V_ziel)} °C Vorlauf zu klein")
         if h.dp_ventil > 20000:
             hinweise.append("Ventil-Differenzdruck > 200 mbar: Geräuschgefahr")
@@ -230,10 +250,13 @@ def berechne_abgleich(projekt, gebaeude):
         h.ventil = schluessel
         v = katalog.get(schluessel, {})
         if "stufen" in v:
-            h.einstellung, h.kv_ist = waehle_voreinstellung(h.kv, v["stufen"])
+            if h.unterdeckt and "N" in v["stufen"]:
+                h.einstellung, h.kv_ist = "N", v["stufen"]["N"]  # Heizkörper zu klein: Ventil ganz öffnen
+            else:
+                h.einstellung, h.kv_ist = waehle_voreinstellung(h.kv, v["stufen"])
             h.m_ist = h.kv_ist * 1000.0 * math.sqrt(h.dp_ventil / 1e5)
             abw = h.m_ist / h.m - 1.0
-            if abs(abw) > 0.15:
+            if abs(abw) > 0.15 and not h.unterdeckt:
                 h.hinweise += (f"Volumenstrom mit Voreinstellung {de(100 * abw, 0)} % vom Soll",)
         else:
             h.einstellung, h.kv_ist, h.m_ist = "werkseitig", h.kv, h.m
