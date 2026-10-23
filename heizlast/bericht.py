@@ -65,7 +65,7 @@ def _tabelle(kopf, zeilen, klasse="", zahlspalten=(), zeilenklassen=None):
     return "".join(h)
 
 
-def erzeuge_html(projekt, geb, abg, datum=None):
+def erzeuge_html(projekt, geb, abg, datum=None, nur_heizlast=False):
     datum = datum or datetime.date.today()
     pj = projekt["projekt"]
     klima = projekt["klima"]
@@ -81,9 +81,9 @@ def erzeuge_html(projekt, geb, abg, datum=None):
         o.append('<div class="wasserzeichen">MUSTER</div>')
 
     # Kopf
-    o.append("<h1>Heizlastberechnung und hydraulischer Abgleich</h1>")
-    o.append('<div class="untertitel">Raumweise Norm-Heizlast in Anlehnung an DIN EN 12831-1 / DIN/TS 12831-1 (vereinfachtes Verfahren) · '
-             "Hydraulischer Abgleich nach Verfahren B</div>")
+    o.append("<h1>Heizlastberechnung</h1>" if nur_heizlast else "<h1>Heizlastberechnung und hydraulischer Abgleich</h1>")
+    o.append('<div class="untertitel">Raumweise Norm-Heizlast in Anlehnung an DIN EN 12831-1 / DIN/TS 12831-1 (vereinfachtes Verfahren)'
+             + ("" if nur_heizlast else " · Hydraulischer Abgleich nach Verfahren B") + "</div>")
     if muster:
         o.append(f'<div class="muster">MUSTERBERECHNUNG – {_t(pj.get("hinweis", ""))}</div>')
     if pj.get("warnung"):
@@ -102,13 +102,16 @@ def erzeuge_html(projekt, geb, abg, datum=None):
     kacheln = [
         (f"{de(geb.phi_HL / 1000, 1)} kW", "Gebäude-Heizlast"),
         (f"{de(geb.spez)} W/m²", f"spezifisch, bezogen auf {de(geb.A, 1)} m² beheizte Fläche"),
+        (f"{de(geb.summe_raumheizlasten / 1000, 1)} kW", "Summe der Raumheizlasten (für Heizflächen)"),
+    ]
+    if not nur_heizlast:
+      kacheln += [
         (f"{de(abg.theta_V, 1)} / {de(abg.theta_R_misch, 1)} °C", "Auslegung Vorlauf / Rücklauf (Mischtemperatur)"),
         (f"{de(abg.theta_V_bestand, 1)} °C", "nötiger Vorlauf mit allen Bestandsheizkörpern"),
         (f"{len(getauscht)} von {len(abg.heizkoerper)}", f"Heizkörper zu tauschen für ≤ {de(abg.theta_V_ziel)} °C Vorlauf"),
         (f"{de(abg.m_gesamt)} l/h", "Volumenstrom gesamt"),
         (f"{de(abg.foerderhoehe_m, 2)} m", f"Förderhöhe Heizkreispumpe ({de(abg.dp_verfuegbar / 100 + abg.dp_erzeuger / 100)} mbar)"),
-        (f"{de(geb.summe_raumheizlasten / 1000, 1)} kW", "Summe der Raumheizlasten (für Heizflächen)"),
-    ]
+      ]
     o.append('<div class="kacheln">' + "".join(
         f'<div class="kachel"><div class="wert">{w}</div><div class="lbl">{_t(l)}</div></div>' for w, l in kacheln) + "</div>")
     o.append('<p class="hinweis">Nicht enthalten: Zuschläge für Warmwasserbereitung und EVU-Sperrzeiten bei der Auslegung des Wärmeerzeugers. '
@@ -166,90 +169,91 @@ def erzeuge_html(projekt, geb, abg, datum=None):
              "(Wind wirkt nicht auf alle Fassaden gleichzeitig). Wärmegewinne aus wärmeren Nachbarräumen (z. B. Bad) sind "
              "auf der sicheren Seite vernachlässigt.</p>")
 
-    # 3 Hydraulischer Abgleich
-    o.append("<h2>3 Hydraulischer Abgleich (Verfahren B)</h2>")
-    ab = [
-        ("System", _t(hyd.get("system", "Zweirohrheizung"))),
-        ("Ziel-Vorlauftemperatur (Wärmepumpe)", f"{de(abg.theta_V_ziel, 1)} °C"),
-        ("Auslegungsspreizung maßgebender Heizkörper", f"{de(abg.spreizung_ausl, 1)} K"),
-        ("Heizkörper-Kennlinie", f"Φ = Φ<sub>N</sub> · (ΔT<sub>log</sub> / {de(DT_LOG_N, 2)} K)<sup>n</sup>, Φ<sub>N</sub> bei 75/65/20 °C (DIN EN 442)"),
-        ("Rohrnetz (Abschätzung)", f"R = {de(hyd.get('R_Pa_pro_m', 100))} Pa/m, Einzelwiderstände +{de(100 * hyd.get('zuschlag_einzelwiderstaende', 0.3))} %, "
-                                   "Vor- und Rücklauf (2 × Leitungslänge)"),
-        ("Mindest-Differenzdruck am Thermostatventil (ungünstigster Heizkörper)", f"{de(hyd.get('dp_ventil_min_mbar', 50))} mbar"),
-        ("Druckverlust Wärmeerzeuger", f"{de(hyd.get('dp_erzeuger_mbar', 0))} mbar – {_t(hyd.get('dp_erzeuger_hinweis', ''))}"),
-        ("Ventiltyp", _t(hyd.get("ventiltyp", "nicht angegeben"))),
-    ]
-    o.append('<table class="info klein">' + "".join(f"<tr><td>{a}</td><td>{b}</td></tr>" for a, b in ab) + "</table>")
+    if not nur_heizlast:
+        # 3 Hydraulischer Abgleich
+        o.append("<h2>3 Hydraulischer Abgleich (Verfahren B)</h2>")
+        ab = [
+            ("System", _t(hyd.get("system", "Zweirohrheizung"))),
+            ("Ziel-Vorlauftemperatur (Wärmepumpe)", f"{de(abg.theta_V_ziel, 1)} °C"),
+            ("Auslegungsspreizung maßgebender Heizkörper", f"{de(abg.spreizung_ausl, 1)} K"),
+            ("Heizkörper-Kennlinie", f"Φ = Φ<sub>N</sub> · (ΔT<sub>log</sub> / {de(DT_LOG_N, 2)} K)<sup>n</sup>, Φ<sub>N</sub> bei 75/65/20 °C (DIN EN 442)"),
+            ("Rohrnetz (Abschätzung)", f"R = {de(hyd.get('R_Pa_pro_m', 100))} Pa/m, Einzelwiderstände +{de(100 * hyd.get('zuschlag_einzelwiderstaende', 0.3))} %, "
+                                       "Vor- und Rücklauf (2 × Leitungslänge)"),
+            ("Mindest-Differenzdruck am Thermostatventil (ungünstigster Heizkörper)", f"{de(hyd.get('dp_ventil_min_mbar', 50))} mbar"),
+            ("Druckverlust Wärmeerzeuger", f"{de(hyd.get('dp_erzeuger_mbar', 0))} mbar – {_t(hyd.get('dp_erzeuger_hinweis', ''))}"),
+            ("Ventiltyp", _t(hyd.get("ventiltyp", "nicht angegeben"))),
+        ]
+        o.append('<table class="info klein">' + "".join(f"<tr><td>{a}</td><td>{b}</td></tr>" for a, b in ab) + "</table>")
 
-    if getauscht:
-        o.append(f"<p>Mit allen Bestandsheizkörpern wären <b>{de(abg.theta_V_bestand, 1)} °C</b> Vorlauf nötig. "
-                 f"Damit die Wärmepumpe mit höchstens {de(abg.theta_V_ziel)} °C auskommt, sind {len(getauscht)} Heizkörper zu tauschen "
-                 f"(orange markiert). Der Abgleich ist für <b>{de(abg.theta_V, 1)} °C</b> Vorlauf mit den neuen Heizkörpern gerechnet.</p>")
-    else:
-        o.append(f"<p>Alle Bestandsheizkörper reichen bei <b>{de(abg.theta_V, 1)} °C</b> Vorlauf aus.</p>")
+        if getauscht:
+            o.append(f"<p>Mit allen Bestandsheizkörpern wären <b>{de(abg.theta_V_bestand, 1)} °C</b> Vorlauf nötig. "
+                     f"Damit die Wärmepumpe mit höchstens {de(abg.theta_V_ziel)} °C auskommt, sind {len(getauscht)} Heizkörper zu tauschen "
+                     f"(orange markiert). Der Abgleich ist für <b>{de(abg.theta_V, 1)} °C</b> Vorlauf mit den neuen Heizkörpern gerechnet.</p>")
+        else:
+            o.append(f"<p>Alle Bestandsheizkörper reichen bei <b>{de(abg.theta_V, 1)} °C</b> Vorlauf aus.</p>")
 
-    o.append("<h3>3.1 Heizkörper – Leistung und Temperaturen</h3>")
-    zeilen, kl = [], []
-    for h in abg.heizkoerper:
-        zeilen.append((_t(h.id), _t(h.raum), _t(h.beschreibung), de(h.phi_N), de(h.phi_soll), de(h.theta_V_erf, 1),
-                       de(h.phi_N_ausl) + (" neu" if h.getauscht else ""), de(h.theta_R, 1), de(h.spreizung, 1), de(h.m)))
-        kl.append("tausch" if h.getauscht else "")
-    o.append(_tabelle(
-        ["HK", "Raum", "Heizkörper Bestand", "Φ<sub>N</sub> Bestand W", "Φ<sub>soll</sub> W",
-         f"VL nötig °C (σ = {de(abg.spreizung_ausl)} K)", "Φ<sub>N</sub> Auslegung W", "RL °C", "Spreizung K", "V̇ l/h"],
-        zeilen, klasse="klein", zahlspalten=(3, 4, 5, 6, 7, 8, 9), zeilenklassen=kl))
+        o.append("<h3>3.1 Heizkörper – Leistung und Temperaturen</h3>")
+        zeilen, kl = [], []
+        for h in abg.heizkoerper:
+            zeilen.append((_t(h.id), _t(h.raum), _t(h.beschreibung), de(h.phi_N), de(h.phi_soll), de(h.theta_V_erf, 1),
+                           de(h.phi_N_ausl) + (" neu" if h.getauscht else ""), de(h.theta_R, 1), de(h.spreizung, 1), de(h.m)))
+            kl.append("tausch" if h.getauscht else "")
+        o.append(_tabelle(
+            ["HK", "Raum", "Heizkörper Bestand", "Φ<sub>N</sub> Bestand W", "Φ<sub>soll</sub> W",
+             f"VL nötig °C (σ = {de(abg.spreizung_ausl)} K)", "Φ<sub>N</sub> Auslegung W", "RL °C", "Spreizung K", "V̇ l/h"],
+            zeilen, klasse="klein", zahlspalten=(3, 4, 5, 6, 7, 8, 9), zeilenklassen=kl))
 
-    katalog = projekt.get("ventile", {})
-    o.append("<h3>3.2 Druckverluste, Ventile und Voreinstellung</h3>")
-    zeilen, kl = [], []
-    for h in abg.heizkoerper:
-        hinweise = list(h.hinweise)
-        if h.getauscht and h.theta_V_erf - abg.theta_V_ziel <= GRENZFALL_K:
-            hinweise.append(f"Grenzfall: alternativ Vorlauf auf {de(h.theta_V_erf, 1)} °C anheben statt tauschen")
-        bez = katalog.get(h.ventil, {}).get("kurz", h.ventil)
-        zeilen.append((_t(h.id), _t(h.raum), de(h.m), de(h.L, 1), de(h.dp_rohr / 100, 1), de(h.dp_ventil / 100, 1),
-                       de(h.kv, 3), _t(bez), f"<b>{_t(h.einstellung)}</b>", de(h.m_ist),
-                       "<br>".join(_t(x) for x in hinweise) or "–"))
-        kl.append("tausch" if h.getauscht else "")
-    o.append(_tabelle(
-        ["HK", "Raum", "V̇ Soll l/h", "Leitung einfach m", "Δp Rohr mbar", "Δp Ventil mbar", "k<sub>v</sub> erf. m³/h",
-         "Ventil", "Voreinstellung", "V̇ mit Einst. l/h", "Hinweise"],
-        zeilen, klasse="klein", zahlspalten=(2, 3, 4, 5, 6, 9), zeilenklassen=kl))
-    o.append('<div class="formel">V̇ = Φ<sub>soll</sub> / (1,163 · (θ<sub>V</sub> − θ<sub>R</sub>))  ·  '
-             "Δp<sub>Rohr</sub> = 2 · L · R · (1 + Z)  ·  Δp<sub>Ventil</sub> = Δp<sub>verfügbar</sub> − Δp<sub>Rohr</sub>  ·  "
-             "k<sub>v</sub> = V̇[m³/h] / √(Δp<sub>Ventil</sub>[bar])</div>")
-    for k, v in katalog.items():
-        if v.get("hinweis"):
-            o.append(f'<p class="hinweis"><b>{_t(v.get("bezeichnung", k))}:</b> {_t(v["hinweis"])}</p>')
-        if "stufen" in v:
-            o.append(_tabelle(["Voreinstellung"] + [_t(x) for x in v["stufen"]],
-                              [("k<sub>v</sub> m³/h",) + tuple(de(x, 2) for x in v["stufen"].values())],
-                              klasse="klein", zahlspalten=tuple(range(1, len(v["stufen"]) + 1))))
+        katalog = projekt.get("ventile", {})
+        o.append("<h3>3.2 Druckverluste, Ventile und Voreinstellung</h3>")
+        zeilen, kl = [], []
+        for h in abg.heizkoerper:
+            hinweise = list(h.hinweise)
+            if h.getauscht and h.theta_V_erf - abg.theta_V_ziel <= GRENZFALL_K:
+                hinweise.append(f"Grenzfall: alternativ Vorlauf auf {de(h.theta_V_erf, 1)} °C anheben statt tauschen")
+            bez = katalog.get(h.ventil, {}).get("kurz", h.ventil)
+            zeilen.append((_t(h.id), _t(h.raum), de(h.m), de(h.L, 1), de(h.dp_rohr / 100, 1), de(h.dp_ventil / 100, 1),
+                           de(h.kv, 3), _t(bez), f"<b>{_t(h.einstellung)}</b>", de(h.m_ist),
+                           "<br>".join(_t(x) for x in hinweise) or "–"))
+            kl.append("tausch" if h.getauscht else "")
+        o.append(_tabelle(
+            ["HK", "Raum", "V̇ Soll l/h", "Leitung einfach m", "Δp Rohr mbar", "Δp Ventil mbar", "k<sub>v</sub> erf. m³/h",
+             "Ventil", "Voreinstellung", "V̇ mit Einst. l/h", "Hinweise"],
+            zeilen, klasse="klein", zahlspalten=(2, 3, 4, 5, 6, 9), zeilenklassen=kl))
+        o.append('<div class="formel">V̇ = Φ<sub>soll</sub> / (1,163 · (θ<sub>V</sub> − θ<sub>R</sub>))  ·  '
+                 "Δp<sub>Rohr</sub> = 2 · L · R · (1 + Z)  ·  Δp<sub>Ventil</sub> = Δp<sub>verfügbar</sub> − Δp<sub>Rohr</sub>  ·  "
+                 "k<sub>v</sub> = V̇[m³/h] / √(Δp<sub>Ventil</sub>[bar])</div>")
+        for k, v in katalog.items():
+            if v.get("hinweis"):
+                o.append(f'<p class="hinweis"><b>{_t(v.get("bezeichnung", k))}:</b> {_t(v["hinweis"])}</p>')
+            if "stufen" in v:
+                o.append(_tabelle(["Voreinstellung"] + [_t(x) for x in v["stufen"]],
+                                  [("k<sub>v</sub> m³/h",) + tuple(de(x, 2) for x in v["stufen"].values())],
+                                  klasse="klein", zahlspalten=tuple(range(1, len(v["stufen"]) + 1))))
 
-    o.append("<h3>3.3 Heizkreispumpe – Auslegung</h3>")
-    sens = []
-    for dp in (0, 100, 200, 300):
-        hh = abg.foerderhoehe_m + dp * 100 / 9810.0
-        sens.append((f"{dp} mbar", de(hh, 2) + " m", de(hh * (1 + abg.reserve), 2) + " m"))
-    o.append(_tabelle(
-        ["Größe", "Wert"],
-        [
-            ("Auslegungsvolumenstrom", f"{de(abg.m_gesamt)} l/h ({de(abg.m_gesamt / 1000, 2)} m³/h)"),
-            ("Differenzdruck Verteilnetz (ungünstigster Strang + Ventil)", f"{de(abg.dp_verfuegbar / 100)} mbar"),
-            ("Druckverlust Wärmeerzeuger (in Rechnung)", f"{de(abg.dp_erzeuger / 100)} mbar"),
-            ("Förderhöhe rechnerisch", f"{de(abg.foerderhoehe_m, 2)} m"),
-            (f"Förderhöhe mit {de(100 * abg.reserve)} % Reserve = <b>Auslegungspunkt</b>",
-             f"<b>{de(abg.m_gesamt / 1000, 2)} m³/h bei {de(abg.foerderhoehe_ausl_m, 2)} m</b>"),
-            ("Hydraulische Leistung", f"{de(abg.p_hyd_W, 1)} W (elektrisch bei Hocheffizienzpumpe ca. {de(abg.p_hyd_W / 0.25, 0)} W, Annahme η ≈ 25 %)"),
-            ("Pumpentyp", "Hocheffizienzpumpe (EEI ≤ 0,20), DN 25, Förderhöhe max. mind. 4 m, z. B. Baureihe 25-40 / 25-60 – "
-                          "Auslegungspunkt liegt am unteren Ende der Kennlinie"),
-            ("Regelungsart", "Konstantdruck (Δp-c), Sollwert = Auslegungsförderhöhe; die Voreinstellungen sind für konstanten Differenzdruck gerechnet"),
-            ("Mischrücklauf bei Auslegung", f"{de(abg.theta_R_misch, 1)} °C (Systemspreizung {de(abg.theta_V - abg.theta_R_misch, 1)} K)"),
-        ], klasse="klein info"))
-    o.append("<p><b>Falls die Pumpe auch den Wärmeerzeuger durchströmen muss</b> (keine hydraulische Weiche/Pufferentkopplung): "
-             "Der Druckverlust der Wärmepumpe beim Auslegungsvolumenstrom steht im Datenblatt des Geräts und kommt hinzu.</p>")
-    o.append(_tabelle(["Druckverlust Wärmepumpe", "Förderhöhe", f"mit {de(100 * abg.reserve)} % Reserve"], sens,
-                      klasse="klein", zahlspalten=(1, 2)))
+        o.append("<h3>3.3 Heizkreispumpe – Auslegung</h3>")
+        sens = []
+        for dp in (0, 100, 200, 300):
+            hh = abg.foerderhoehe_m + dp * 100 / 9810.0
+            sens.append((f"{dp} mbar", de(hh, 2) + " m", de(hh * (1 + abg.reserve), 2) + " m"))
+        o.append(_tabelle(
+            ["Größe", "Wert"],
+            [
+                ("Auslegungsvolumenstrom", f"{de(abg.m_gesamt)} l/h ({de(abg.m_gesamt / 1000, 2)} m³/h)"),
+                ("Differenzdruck Verteilnetz (ungünstigster Strang + Ventil)", f"{de(abg.dp_verfuegbar / 100)} mbar"),
+                ("Druckverlust Wärmeerzeuger (in Rechnung)", f"{de(abg.dp_erzeuger / 100)} mbar"),
+                ("Förderhöhe rechnerisch", f"{de(abg.foerderhoehe_m, 2)} m"),
+                (f"Förderhöhe mit {de(100 * abg.reserve)} % Reserve = <b>Auslegungspunkt</b>",
+                 f"<b>{de(abg.m_gesamt / 1000, 2)} m³/h bei {de(abg.foerderhoehe_ausl_m, 2)} m</b>"),
+                ("Hydraulische Leistung", f"{de(abg.p_hyd_W, 1)} W (elektrisch bei Hocheffizienzpumpe ca. {de(abg.p_hyd_W / 0.25, 0)} W, Annahme η ≈ 25 %)"),
+                ("Pumpentyp", "Hocheffizienzpumpe (EEI ≤ 0,20), DN 25, Förderhöhe max. mind. 4 m, z. B. Baureihe 25-40 / 25-60 – "
+                              "Auslegungspunkt liegt am unteren Ende der Kennlinie"),
+                ("Regelungsart", "Konstantdruck (Δp-c), Sollwert = Auslegungsförderhöhe; die Voreinstellungen sind für konstanten Differenzdruck gerechnet"),
+                ("Mischrücklauf bei Auslegung", f"{de(abg.theta_R_misch, 1)} °C (Systemspreizung {de(abg.theta_V - abg.theta_R_misch, 1)} K)"),
+            ], klasse="klein info"))
+        o.append("<p><b>Falls die Pumpe auch den Wärmeerzeuger durchströmen muss</b> (keine hydraulische Weiche/Pufferentkopplung): "
+                 "Der Druckverlust der Wärmepumpe beim Auslegungsvolumenstrom steht im Datenblatt des Geräts und kommt hinzu.</p>")
+        o.append(_tabelle(["Druckverlust Wärmepumpe", "Förderhöhe", f"mit {de(100 * abg.reserve)} % Reserve"], sens,
+                          klasse="klein", zahlspalten=(1, 2)))
 
     # 4 Prüfpunkte
     o.append("<h2>4 Prüfpunkte vor Freigabe</h2><ul>")

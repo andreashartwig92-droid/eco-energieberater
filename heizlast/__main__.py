@@ -46,6 +46,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Heizlast (DIN EN 12831-1, vereinfacht) und hydraulischer Abgleich (Verfahren B)")
     ap.add_argument("projekt", help="Projektdatei (JSON)")
     ap.add_argument("--ausgabe", help="Zielordner (Standard: neben der Projektdatei)")
+    ap.add_argument("--nur-heizlast", action="store_true", help="nur Heizlastberechnung ohne hydraulischen Abgleich (Dateiname *_heizlast)")
     args = ap.parse_args(argv)
 
     quelle = Path(args.projekt)
@@ -55,9 +56,10 @@ def main(argv=None):
 
     ziel = Path(args.ausgabe) if args.ausgabe else quelle.parent
     ziel.mkdir(parents=True, exist_ok=True)
-    html_datei = ziel / f"{quelle.stem}_bericht.html"
-    html_datei.write_text(erzeuge_html(projekt, geb, abg), encoding="utf-8")
-    pdf_datei = ziel / f"{quelle.stem}_bericht.pdf"
+    name = "heizlast" if args.nur_heizlast else "bericht"
+    html_datei = ziel / f"{quelle.stem}_{name}.html"
+    html_datei.write_text(erzeuge_html(projekt, geb, abg, nur_heizlast=args.nur_heizlast), encoding="utf-8")
+    pdf_datei = ziel / f"{quelle.stem}_{name}.pdf"
     pdf_ok = als_pdf(html_datei, pdf_datei)
 
     print(f"Gebäude-Heizlast:        {de(geb.phi_HL / 1000, 2)} kW ({de(geb.spez)} W/m²)")
