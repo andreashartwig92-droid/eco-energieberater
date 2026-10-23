@@ -2,9 +2,9 @@
  "projekt": {
   "titel": "Einfamilienhaus Wagner – Hydraulischer Abgleich",
   "adresse": "Könitzer Str 32, 07338 Kaulsdorf",
-  "baujahr": "unbekannt",
-  "beschreibung": "Bauherr: Michael Wolfgang Wagner · 1 Wohneinheit, BEG-Zuschuss Heizung (KfW 458, Zuschussreferenz 458000000995142, Zusage 25.09.2026). 2 Geschosse (EG/OG), Treppenhaus/Flur und Abstellkammer unbeheizt. Zweirohrheizung mit Plattenheizkörpern und Danfoss-Thermostatventilen (Axial 1/2″). Geplant: Wärmepumpe mit Bestandsheizkörpern.",
-  "warnung": "VORLÄUFIG – Heizlast aus den Grundrissen (EG/OG) berechnet. NICHT angenommen aus der Heizlast des Kunden: U-Werte (Bestand ungedämmt), Norm-Außentemperatur −14 °C (Näherung für PLZ 07338, nicht in der Norm-Tabelle nachgeschlagen), Fenstergrößen im OG, Luftdichtheit und Dachdämmung. Normleistungen der Heizkörper sind Katalog-Näherungswerte, Leitungslängen geschätzt. Vor Verwendung ersetzen."
+  "baujahr": 1975,
+  "beschreibung": "Bauherr: Michael Wolfgang Wagner · 1 Wohneinheit, BEG-Zuschuss Heizung (KfW 458, Zuschussreferenz 458000000995142, Zusage 25.09.2026). Baujahr 1975, Fenster 2005 erneuert. 2 Geschosse (EG/OG), Treppenhaus/Flur und Abstellkammer unbeheizt. Zweirohrheizung mit Plattenheizkörpern und Danfoss-Thermostatventilen (Axial 1/2″). Geplant: Wärmepumpe mit Bestandsheizkörpern.",
+  "warnung": "VORLÄUFIG – Heizlast aus den Grundrissen (EG/OG) berechnet. NICHT aus der Heizlast des Kunden: angenommen sind U-Werte der Bauteile (Wand, Decken; Fenster nach Baujahr/Erneuerung 2005), Norm-Außentemperatur −14 °C (Näherung für PLZ 07338), Fenstergrößen im OG, Luftdichtheit und Dachraum-Dämmung. Normleistungen der Heizkörper sind Katalog-Näherungswerte, Leitungslängen geschätzt. Vor Verwendung ersetzen."
  },
  "klima": {
   "theta_e": -14.0,
@@ -13,23 +13,23 @@
  },
  "bauteile": {
   "AW": {
-   "bezeichnung": "Außenwand Mauerwerk ca. 36,5 cm, ungedämmt (Annahme)",
+   "bezeichnung": "Außenwand Mauerwerk ca. 36,5 cm, Baujahr 1975, ungedämmt (Annahme)",
    "U": 1.2
   },
   "FE": {
-   "bezeichnung": "Fenster 2-fach Isolierverglasung (Annahme)",
-   "U": 1.8
+   "bezeichnung": "Fenster Kunststoff, 2-fach-Wärmeschutzverglasung (2005 erneuert)",
+   "U": 1.3
   },
   "BT": {
-   "bezeichnung": "Balkontür, obere Hälfte 1-fach verglast (Annahme)",
-   "U": 3.0
+   "bezeichnung": "Balkontür (2005 erneuert, obere Hälfte verglast, Annahme)",
+   "U": 1.6
   },
   "KD": {
    "bezeichnung": "Kellerdecke, ungedämmt (Annahme: unbeheizter Keller)",
    "U": 1.0
   },
   "OGD": {
-   "bezeichnung": "Decke zum unbeheizten Dachraum, ungedämmt (Annahme)",
+   "bezeichnung": "Decke zum unbeheizten Dachraum, Baujahr 1975, ungedämmt (Annahme)",
    "U": 0.8
   },
   "IW": {
@@ -301,7 +301,7 @@
      "oeffnungen": [
       {
        "typ": "BT",
-       "text": "Balkontür, 1-fach obere Hälfte",
+       "text": "Balkontür (Annahme: 2005 erneuert)",
        "l": 0.9,
        "h": 2.1
       }
@@ -542,7 +542,7 @@
  },
  "lueftung": {
   "art": "freie Lüftung (Fensterlüftung)",
-  "n50": 5.0,
+  "n50": 4.0,
   "n50_quelle": "Annahme, Bestand ohne Messung",
   "epsilon": 1.0,
   "n_min_standard": 0.5
