@@ -1,15 +1,15 @@
 {
  "projekt": {
   "titel": "Einfamilienhaus Wagner – Hydraulischer Abgleich",
-  "adresse": "–",
+  "adresse": "Könitzer Str 32, 07338 Kaulsdorf",
   "baujahr": "unbekannt",
-  "beschreibung": "2 Geschosse (EG/OG), Treppenhaus/Flur und Abstellkammer unbeheizt. Zweirohrheizung mit Plattenheizkörpern und Danfoss-Thermostatventilen (Axial 1/2″). Geplant: Wärmepumpe mit Bestandsheizkörpern.",
-  "warnung": "VORLÄUFIG – Heizlast aus den Grundrissen (EG/OG) berechnet. NICHT angenommen aus der Heizlast des Kunden: U-Werte (Bestand ungedämmt), Norm-Außentemperatur −12 °C, Fenstergrößen im OG, Luftdichtheit und Dachdämmung. Normleistungen der Heizkörper sind Katalog-Näherungswerte, Leitungslängen geschätzt. Vor Verwendung ersetzen."
+  "beschreibung": "Bauherr: Michael Wolfgang Wagner · 1 Wohneinheit, BEG-Zuschuss Heizung (KfW 458, Zuschussreferenz 458000000995142, Zusage 25.09.2026). 2 Geschosse (EG/OG), Treppenhaus/Flur und Abstellkammer unbeheizt. Zweirohrheizung mit Plattenheizkörpern und Danfoss-Thermostatventilen (Axial 1/2″). Geplant: Wärmepumpe mit Bestandsheizkörpern.",
+  "warnung": "VORLÄUFIG – Heizlast aus den Grundrissen (EG/OG) berechnet. NICHT angenommen aus der Heizlast des Kunden: U-Werte (Bestand ungedämmt), Norm-Außentemperatur −14 °C (Näherung für PLZ 07338, nicht in der Norm-Tabelle nachgeschlagen), Fenstergrößen im OG, Luftdichtheit und Dachdämmung. Normleistungen der Heizkörper sind Katalog-Näherungswerte, Leitungslängen geschätzt. Vor Verwendung ersetzen."
  },
  "klima": {
-  "theta_e": -12.0,
-  "theta_m_e": 9.0,
-  "quelle": "angenommen – für den echten Standort nach DIN/TS 12831-1 ermitteln"
+  "theta_e": -14.0,
+  "theta_m_e": 8.0,
+  "quelle": "Näherung für PLZ 07338 (Kaulsdorf, Thüringen) – Wert nach DIN/TS 12831-1 prüfen"
  },
  "bauteile": {
   "AW": {
