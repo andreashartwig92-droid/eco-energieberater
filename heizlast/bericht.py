@@ -86,6 +86,8 @@ def erzeuge_html(projekt, geb, abg, datum=None):
              "Hydraulischer Abgleich nach Verfahren B</div>")
     if muster:
         o.append(f'<div class="muster">MUSTERBERECHNUNG – {_t(pj.get("hinweis", ""))}</div>')
+    if pj.get("warnung"):
+        o.append(f'<div class="muster">{_t(pj["warnung"])}</div>')
     info = [
         ("Objekt", pj["titel"]),
         ("Adresse", pj.get("adresse", "–")),
@@ -116,8 +118,8 @@ def erzeuge_html(projekt, geb, abg, datum=None):
     # 1 Randbedingungen
     o.append("<h2>1 Randbedingungen</h2>")
     rb = [
-        ("Norm-Außentemperatur θ<sub>e</sub>", f"{de(klima['theta_e'], 1)} °C", klima.get("quelle", "")),
-        ("Jahresmittel Außentemperatur θ<sub>m,e</sub>", f"{de(klima['theta_m_e'], 1)} °C", "nur für erdberührte Bauteile"),
+        ("Norm-Außentemperatur θ<sub>e</sub>", f"{de(klima['theta_e'], 1)} °C" if "theta_e" in klima else "–", klima.get("quelle", "")),
+        ("Jahresmittel Außentemperatur θ<sub>m,e</sub>", f"{de(klima['theta_m_e'], 1)} °C" if "theta_m_e" in klima else "–", "nur für erdberührte Bauteile"),
         ("Lüftung", _t(lue.get("art", "freie Lüftung")), ""),
         ("Luftwechsel n<sub>50</sub>", f"{de(lue.get('n50', 4.0), 1)} h⁻¹", _t(lue.get("n50_quelle", ""))),
         ("Mindestluftwechsel n<sub>min</sub>", f"{de(lue.get('n_min_standard', 0.5), 1)} h⁻¹", "je Raum, sofern nicht abweichend angegeben"),
@@ -125,11 +127,12 @@ def erzeuge_html(projekt, geb, abg, datum=None):
     ]
     o.append(_tabelle(["Größe", "Wert", "Quelle / Bemerkung"], [(a, b, _t(c)) for a, b, c in rb], klasse="klein"))
 
-    o.append("<h3>Bauteilkatalog</h3>")
-    o.append(_tabelle(
-        ["Kürzel", "Bauteil", "U-Wert W/(m²K)"],
-        [(_t(k), _t(v["bezeichnung"]), de(v["U"], 2)) for k, v in projekt["bauteile"].items()],
-        klasse="klein", zahlspalten=(2,)))
+    if projekt.get("bauteile"):
+        o.append("<h3>Bauteilkatalog</h3>")
+        o.append(_tabelle(
+            ["Kürzel", "Bauteil", "U-Wert W/(m²K)"],
+            [(_t(k), _t(v["bezeichnung"]), de(v["U"], 2)) for k, v in projekt["bauteile"].items()],
+            klasse="klein", zahlspalten=(2,)))
     if projekt.get("angrenzend"):
         o.append("<h3>Angrenzende unbeheizte Bereiche</h3>")
         o.append(_tabelle(
@@ -141,16 +144,23 @@ def erzeuge_html(projekt, geb, abg, datum=None):
     o.append("<h2>2 Raumweise Norm-Heizlast</h2>")
     zeilen = []
     for r in geb.raeume:
-        zeilen.append((_t(r.geschoss), _t(r.name), de(r.theta_i), de(r.A, 1), de(r.V, 1), de(r.phi_T), de(r.phi_V),
-                       de(r.phi_HL), de(r.spez)))
+        zeilen.append((_t(r.geschoss), _t(r.name), de(r.theta_i), de(r.A, 1), de(r.V, 1),
+                       "–" if r.vorgabe else de(r.phi_T), "–" if r.vorgabe else de(r.phi_V),
+                       de(r.phi_HL) + (" *" if r.vorgabe else ""), de(r.spez)))
+    teilweise = any(r.vorgabe for r in geb.raeume)
     zeilen.append(("", "Summe Raumheizlasten", "", de(geb.A, 1), de(sum(r.V for r in geb.raeume), 1),
-                   de(sum(r.phi_T for r in geb.raeume)), de(sum(r.phi_V for r in geb.raeume)),
+                   "–" if teilweise else de(sum(r.phi_T for r in geb.raeume)),
+                   "–" if teilweise else de(sum(r.phi_V for r in geb.raeume)),
                    de(geb.summe_raumheizlasten), de(geb.summe_raumheizlasten / geb.A)))
-    zeilen.append(("", "Gebäude-Heizlast", "", de(geb.A, 1), "", de(geb.phi_T), de(geb.phi_V), de(geb.phi_HL), de(geb.spez)))
+    zeilen.append(("", "Gebäude-Heizlast", "", de(geb.A, 1), "", "–" if teilweise else de(geb.phi_T),
+                   "–" if teilweise else de(geb.phi_V), de(geb.phi_HL), de(geb.spez)))
     o.append(_tabelle(
         ["Geschoss", "Raum", "θ<sub>i</sub> °C", "A m²", "V m³", "Φ<sub>T</sub> W", "Φ<sub>V</sub> W", "Φ<sub>HL</sub> W", "W/m²"],
         zeilen, klasse="klein", zahlspalten=(2, 3, 4, 5, 6, 7, 8),
         zeilenklassen=[""] * len(geb.raeume) + ["summe", "summe"]))
+    if teilweise:
+        o.append('<p class="hinweis">* Raumheizlast vorgegeben (nicht aus Bauteilen berechnet), Quelle siehe Anhang A. '
+                 "Die Gebäude-Heizlast ist hier die einfache Summe der Raumheizlasten.</p>")
     o.append('<p class="hinweis">Die Summe der Raumheizlasten dient der Heizflächenauslegung. Die Gebäude-Heizlast (Wärmeerzeuger) '
              "ist kleiner: Wärmeströme zwischen beheizten Räumen entfallen, und die Infiltration wird nur zur Hälfte angesetzt "
              "(Wind wirkt nicht auf alle Fassaden gleichzeitig). Wärmegewinne aus wärmeren Nachbarräumen (z. B. Bad) sind "
@@ -221,7 +231,10 @@ def erzeuge_html(projekt, geb, abg, datum=None):
 
     # 4 Prüfpunkte
     o.append("<h2>4 Prüfpunkte vor Freigabe</h2><ul>")
-    pruef = [
+    pruef = []
+    if any(r.vorgabe for r in geb.raeume):
+        pruef.append("Vorgegebene Raumheizlasten durch die Werte der Heizlastberechnung des Kunden ersetzen und den Abgleich neu rechnen.")
+    pruef += [
         "Norm-Außentemperatur und Jahresmitteltemperatur für die PLZ des Objekts nach DIN/TS 12831-1 einsetzen.",
         "Bauteilaufbauten und U-Werte anhand Baubeschreibung, Energieausweis oder Vor-Ort-Aufnahme bestätigen.",
         "Raummaße, Fenster- und Türflächen aus dem Aufmaß übernehmen (Außenmaße bei Außenbauteilen).",
@@ -240,6 +253,12 @@ def erzeuge_html(projekt, geb, abg, datum=None):
              "Φ<sub>V</sub> = 0,34 · max(V̇<sub>inf</sub>; V̇<sub>min</sub>) · (θ<sub>i</sub> − θ<sub>e</sub>)  ·  "
              "V̇<sub>inf</sub> = 2 · V · n<sub>50</sub> · e · ε  ·  V̇<sub>min</sub> = n<sub>min</sub> · V</div>")
     for r in geb.raeume:
+        if r.vorgabe:
+            o.append('<div class="raumblatt">')
+            o.append(f"<h3>{_t(r.geschoss)} · {_t(r.name)} – θ<sub>i</sub> = {de(r.theta_i)} °C, A = {de(r.A, 1)} m²</h3>")
+            o.append(f"<p>Raumheizlast Φ<sub>HL</sub> = <b>{de(r.phi_HL)} W</b> ({de(r.spez)} W/m²), vorgegeben. "
+                     f"{_t(r.vorgabe_quelle)}</p></div>")
+            continue
         o.append('<div class="raumblatt">')
         o.append(f"<h3>{_t(r.geschoss)} · {_t(r.name)} – θ<sub>i</sub> = {de(r.theta_i)} °C, A = {de(r.A, 1)} m², "
                  f"V = {de(r.V, 1)} m³</h3>")

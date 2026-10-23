@@ -6,6 +6,9 @@ Vereinfachtes Verfahren:
                 V_inf = 2 * V * n50 * e * eps,  V_min = n_min * V
   Heizlast      Phi_HL = Phi_T + Phi_V + Phi_RH
 
+Räume mit "phi_HL_vorgabe" (W) werden nicht berechnet; der Wert geht direkt in Abgleich und
+Gebäude-Heizlast ein (Summe, ohne Abminderung).
+
 Temperatur-Korrekturfaktor f je Bauteil:
   aussen           f = 1
   unbeheizt (Zone) f = b_u
@@ -53,6 +56,8 @@ class RaumErgebnis:
     phi_V_gebaeude: float = 0.0
     phi_RH: float = 0.0
     phi_HL: float = 0.0
+    vorgabe: bool = False  # Raumheizlast vorgegeben statt aus Bauteilen berechnet
+    vorgabe_quelle: str = ""
 
     @property
     def spez(self):
@@ -84,7 +89,20 @@ def _korrektur(an, theta_i, theta_e, projekt):
     raise ValueError(f"Unbekannte Angrenzung: {an!r}")
 
 
+def _raum_aus_vorgabe(raum):
+    """Raumheizlast liegt vor (z. B. aus einer Fremdberechnung): keine Bauteilrechnung."""
+    A = float(raum["A"])
+    r = RaumErgebnis(raum["name"], raum.get("geschoss", ""), float(raum["theta_i"]), A,
+                     A * float(raum.get("h", 2.5)))
+    r.phi_HL = float(raum["phi_HL_vorgabe"])
+    r.vorgabe = True
+    r.vorgabe_quelle = raum.get("quelle", "")
+    return r
+
+
 def berechne_raum(raum, projekt):
+    if "phi_HL_vorgabe" in raum:
+        return _raum_aus_vorgabe(raum)
     theta_e = projekt["klima"]["theta_e"]
     theta_i = float(raum["theta_i"])
     dU_wb = projekt.get("waermebruecken", {}).get("delta_U", 0.10)
@@ -158,12 +176,13 @@ def berechne_gebaeude(projekt):
     phi_T = sum(r.phi_T_gebaeude for r in raeume)
     phi_V = sum(r.phi_V_gebaeude for r in raeume)
     phi_RH = sum(r.phi_RH for r in raeume)
+    phi_vorgabe = sum(r.phi_HL for r in raeume if r.vorgabe)
     return GebaeudeErgebnis(
         raeume=raeume,
         phi_T=phi_T,
         phi_V=phi_V,
         phi_RH=phi_RH,
-        phi_HL=phi_T + phi_V + phi_RH,
+        phi_HL=phi_T + phi_V + phi_RH + phi_vorgabe,
         A=sum(r.A for r in raeume),
         summe_raumheizlasten=sum(r.phi_HL for r in raeume),
     )

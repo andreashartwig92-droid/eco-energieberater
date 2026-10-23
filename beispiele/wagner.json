@@ -1,0 +1,173 @@
+{
+ "projekt": {
+  "titel": "Einfamilienhaus Wagner – Hydraulischer Abgleich",
+  "adresse": "–",
+  "baujahr": "unbekannt",
+  "beschreibung": "2 Geschosse (EG/OG), Zweirohrheizung mit Plattenheizkörpern. Geplant: Wärmepumpe mit Bestandsheizkörpern.",
+  "warnung": "VORLÄUFIG – Die Raumheizlasten stammen NICHT aus der Heizlastberechnung des Kunden (Datei war nicht abrufbar), sondern sind aus der Wohnfläche angenommen (60–80 W/m²). Normleistungen der Heizkörper sind Katalog-Näherungswerte, Leitungslängen geschätzt. Vor Verwendung alle Werte ersetzen."
+ },
+ "klima": {
+  "quelle": "nicht erforderlich – Raumheizlasten vorgegeben"
+ },
+ "bauteile": {},
+ "raeume": [
+  {
+   "name": "Wohnzimmer",
+   "geschoss": "EG",
+   "theta_i": 20,
+   "A": 21.8,
+   "h": 2.5,
+   "phi_HL_vorgabe": 1310,
+   "quelle": "Annahme: spezifische Heizlast, nicht aus Kunden-Heizlastberechnung (60 W/m²)."
+  },
+  {
+   "name": "Küche (EG)",
+   "geschoss": "EG",
+   "theta_i": 20,
+   "A": 9.3,
+   "h": 2.5,
+   "phi_HL_vorgabe": 560,
+   "quelle": "Annahme: spezifische Heizlast, nicht aus Kunden-Heizlastberechnung (60 W/m²)."
+  },
+  {
+   "name": "Schlafzimmer",
+   "geschoss": "EG",
+   "theta_i": 20,
+   "A": 11.7,
+   "h": 2.5,
+   "phi_HL_vorgabe": 700,
+   "quelle": "Annahme: spezifische Heizlast, nicht aus Kunden-Heizlastberechnung (60 W/m²)."
+  },
+  {
+   "name": "Bad",
+   "geschoss": "EG",
+   "theta_i": 24,
+   "A": 7.9,
+   "h": 2.5,
+   "phi_HL_vorgabe": 630,
+   "quelle": "Annahme: spezifische Heizlast, nicht aus Kunden-Heizlastberechnung (80 W/m²)."
+  },
+  {
+   "name": "Kinderzimmer links",
+   "geschoss": "OG",
+   "theta_i": 20,
+   "A": 9.0,
+   "h": 2.5,
+   "phi_HL_vorgabe": 585,
+   "quelle": "Annahme: spezifische Heizlast, nicht aus Kunden-Heizlastberechnung (65 W/m²)."
+  },
+  {
+   "name": "Kinderzimmer rechts",
+   "geschoss": "OG",
+   "theta_i": 20,
+   "A": 12.3,
+   "h": 2.5,
+   "phi_HL_vorgabe": 800,
+   "quelle": "Annahme: spezifische Heizlast, nicht aus Kunden-Heizlastberechnung (65 W/m²)."
+  },
+  {
+   "name": "Heimbüro",
+   "geschoss": "OG",
+   "theta_i": 20,
+   "A": 13.6,
+   "h": 2.5,
+   "phi_HL_vorgabe": 885,
+   "quelle": "Annahme: spezifische Heizlast, nicht aus Kunden-Heizlastberechnung (65 W/m²)."
+  },
+  {
+   "name": "Küche (OG)",
+   "geschoss": "OG",
+   "theta_i": 20,
+   "A": 11.5,
+   "h": 2.5,
+   "phi_HL_vorgabe": 750,
+   "quelle": "Annahme: spezifische Heizlast, nicht aus Kunden-Heizlastberechnung (65 W/m²)."
+  }
+ ],
+ "hydraulik": {
+  "system": "Zweirohrheizung, Heizkörper mit Thermostatventilen",
+  "spreizung_auslegung": 7.0,
+  "theta_V_ziel": 55.0,
+  "tausch_kritische": true,
+  "R_Pa_pro_m": 100,
+  "zuschlag_einzelwiderstaende": 0.3,
+  "dp_ventil_min_mbar": 50,
+  "dp_erzeuger_mbar": 0,
+  "dp_erzeuger_hinweis": "Annahme: Trennung über Pufferspeicher/hydraulische Weiche",
+  "ventiltyp": "nicht angegeben"
+ },
+ "heizkoerper": [
+  {
+   "id": "HK-EG-01",
+   "raum": "Wohnzimmer",
+   "beschreibung": "Typ 22, 600 × 1400",
+   "phi_N": 1650,
+   "n": 1.3,
+   "L_einfach": 10
+  },
+  {
+   "id": "HK-EG-02",
+   "raum": "Wohnzimmer",
+   "beschreibung": "Typ 22, 600 × 1400",
+   "phi_N": 1650,
+   "n": 1.3,
+   "L_einfach": 12
+  },
+  {
+   "id": "HK-EG-03",
+   "raum": "Küche (EG)",
+   "beschreibung": "Typ 22, 600 × 600",
+   "phi_N": 710,
+   "n": 1.3,
+   "L_einfach": 8
+  },
+  {
+   "id": "HK-EG-04",
+   "raum": "Schlafzimmer",
+   "beschreibung": "Typ 22, 600 × 2000",
+   "phi_N": 2360,
+   "n": 1.3,
+   "L_einfach": 9
+  },
+  {
+   "id": "HK-EG-05",
+   "raum": "Bad",
+   "beschreibung": "Typ 22, 900 × 700",
+   "phi_N": 1190,
+   "n": 1.3,
+   "L_einfach": 7
+  },
+  {
+   "id": "HK-OG-01",
+   "raum": "Kinderzimmer links",
+   "beschreibung": "Typ 20, 600 × 1000",
+   "phi_N": 800,
+   "n": 1.3,
+   "L_einfach": 14
+  },
+  {
+   "id": "HK-OG-02",
+   "raum": "Kinderzimmer rechts",
+   "beschreibung": "Typ 22, 600 × 1800 (neu)",
+   "phi_N": 2125,
+   "n": 1.3,
+   "L_einfach": 16
+  },
+  {
+   "id": "HK-OG-03",
+   "raum": "Heimbüro",
+   "beschreibung": "Typ 22, 600 × 1400",
+   "phi_N": 1650,
+   "n": 1.3,
+   "L_einfach": 15
+  },
+  {
+   "id": "HK-OG-04",
+   "raum": "Küche (OG)",
+   "beschreibung": "Typ 20, 600 × 1400",
+   "phi_N": 1120,
+   "n": 1.3,
+   "L_einfach": 17
+  }
+ ]
+}
