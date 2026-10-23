@@ -199,35 +199,57 @@ def erzeuge_html(projekt, geb, abg, datum=None):
          f"VL nötig °C (σ = {de(abg.spreizung_ausl)} K)", "Φ<sub>N</sub> Auslegung W", "RL °C", "Spreizung K", "V̇ l/h"],
         zeilen, klasse="klein", zahlspalten=(3, 4, 5, 6, 7, 8, 9), zeilenklassen=kl))
 
+    katalog = projekt.get("ventile", {})
     o.append("<h3>3.2 Druckverluste, Ventile und Voreinstellung</h3>")
     zeilen, kl = [], []
     for h in abg.heizkoerper:
         hinweise = list(h.hinweise)
         if h.getauscht and h.theta_V_erf - abg.theta_V_ziel <= GRENZFALL_K:
             hinweise.append(f"Grenzfall: alternativ Vorlauf auf {de(h.theta_V_erf, 1)} °C anheben statt tauschen")
+        bez = katalog.get(h.ventil, {}).get("kurz", h.ventil)
         zeilen.append((_t(h.id), _t(h.raum), de(h.m), de(h.L, 1), de(h.dp_rohr / 100, 1), de(h.dp_ventil / 100, 1),
-                       de(h.kv, 3), "lt. Hersteller", "<br>".join(_t(x) for x in hinweise) or "–"))
+                       de(h.kv, 3), _t(bez), f"<b>{_t(h.einstellung)}</b>", de(h.m_ist),
+                       "<br>".join(_t(x) for x in hinweise) or "–"))
         kl.append("tausch" if h.getauscht else "")
     o.append(_tabelle(
-        ["HK", "Raum", "V̇ l/h", "Leitung einfach m", "Δp Rohr mbar", "Δp Ventil mbar", "k<sub>v</sub> m³/h", "Voreinstellung", "Hinweise"],
-        zeilen, klasse="klein", zahlspalten=(2, 3, 4, 5, 6), zeilenklassen=kl))
+        ["HK", "Raum", "V̇ Soll l/h", "Leitung einfach m", "Δp Rohr mbar", "Δp Ventil mbar", "k<sub>v</sub> erf. m³/h",
+         "Ventil", "Voreinstellung", "V̇ mit Einst. l/h", "Hinweise"],
+        zeilen, klasse="klein", zahlspalten=(2, 3, 4, 5, 6, 9), zeilenklassen=kl))
     o.append('<div class="formel">V̇ = Φ<sub>soll</sub> / (1,163 · (θ<sub>V</sub> − θ<sub>R</sub>))  ·  '
              "Δp<sub>Rohr</sub> = 2 · L · R · (1 + Z)  ·  Δp<sub>Ventil</sub> = Δp<sub>verfügbar</sub> − Δp<sub>Rohr</sub>  ·  "
              "k<sub>v</sub> = V̇[m³/h] / √(Δp<sub>Ventil</sub>[bar])</div>")
-    o.append('<p class="hinweis">Voreinstellwerte bitte aus dem Herstellerdiagramm des verbauten Thermostatventils '
-             "(k<sub>v</sub>-Wert bei 2 K P-Abweichung) ablesen. Sobald der Ventiltyp bekannt ist, kann die Spalte ergänzt werden.</p>")
+    for k, v in katalog.items():
+        if v.get("hinweis"):
+            o.append(f'<p class="hinweis"><b>{_t(v.get("bezeichnung", k))}:</b> {_t(v["hinweis"])}</p>')
+        if "stufen" in v:
+            o.append(_tabelle(["Voreinstellung"] + [_t(x) for x in v["stufen"]],
+                              [("k<sub>v</sub> m³/h",) + tuple(de(x, 2) for x in v["stufen"].values())],
+                              klasse="klein", zahlspalten=tuple(range(1, len(v["stufen"]) + 1))))
 
-    o.append("<h3>3.3 Heizkreispumpe</h3>")
+    o.append("<h3>3.3 Heizkreispumpe – Auslegung</h3>")
+    sens = []
+    for dp in (0, 100, 200, 300):
+        hh = abg.foerderhoehe_m + dp * 100 / 9810.0
+        sens.append((f"{dp} mbar", de(hh, 2) + " m", de(hh * (1 + abg.reserve), 2) + " m"))
     o.append(_tabelle(
         ["Größe", "Wert"],
         [
-            ("Volumenstrom gesamt", f"{de(abg.m_gesamt)} l/h ({de(abg.m_gesamt / 1000, 2)} m³/h)"),
+            ("Auslegungsvolumenstrom", f"{de(abg.m_gesamt)} l/h ({de(abg.m_gesamt / 1000, 2)} m³/h)"),
             ("Differenzdruck Verteilnetz (ungünstigster Strang + Ventil)", f"{de(abg.dp_verfuegbar / 100)} mbar"),
-            ("Druckverlust Wärmeerzeuger", f"{de(abg.dp_erzeuger / 100)} mbar"),
-            ("Förderhöhe", f"{de(abg.foerderhoehe_m, 2)} m"),
-            ("Regelungsart", "Konstantdruck (Δp-c) auf die Förderhöhe einstellen"),
+            ("Druckverlust Wärmeerzeuger (in Rechnung)", f"{de(abg.dp_erzeuger / 100)} mbar"),
+            ("Förderhöhe rechnerisch", f"{de(abg.foerderhoehe_m, 2)} m"),
+            (f"Förderhöhe mit {de(100 * abg.reserve)} % Reserve = <b>Auslegungspunkt</b>",
+             f"<b>{de(abg.m_gesamt / 1000, 2)} m³/h bei {de(abg.foerderhoehe_ausl_m, 2)} m</b>"),
+            ("Hydraulische Leistung", f"{de(abg.p_hyd_W, 1)} W (elektrisch bei Hocheffizienzpumpe ca. {de(abg.p_hyd_W / 0.25, 0)} W, Annahme η ≈ 25 %)"),
+            ("Pumpentyp", "Hocheffizienzpumpe (EEI ≤ 0,20), DN 25, Förderhöhe max. mind. 4 m, z. B. Baureihe 25-40 / 25-60 – "
+                          "Auslegungspunkt liegt am unteren Ende der Kennlinie"),
+            ("Regelungsart", "Konstantdruck (Δp-c), Sollwert = Auslegungsförderhöhe; die Voreinstellungen sind für konstanten Differenzdruck gerechnet"),
             ("Mischrücklauf bei Auslegung", f"{de(abg.theta_R_misch, 1)} °C (Systemspreizung {de(abg.theta_V - abg.theta_R_misch, 1)} K)"),
         ], klasse="klein info"))
+    o.append("<p><b>Falls die Pumpe auch den Wärmeerzeuger durchströmen muss</b> (keine hydraulische Weiche/Pufferentkopplung): "
+             "Der Druckverlust der Wärmepumpe beim Auslegungsvolumenstrom steht im Datenblatt des Geräts und kommt hinzu.</p>")
+    o.append(_tabelle(["Druckverlust Wärmepumpe", "Förderhöhe", f"mit {de(100 * abg.reserve)} % Reserve"], sens,
+                      klasse="klein", zahlspalten=(1, 2)))
 
     # 4 Prüfpunkte
     o.append("<h2>4 Prüfpunkte vor Freigabe</h2><ul>")
@@ -240,7 +262,8 @@ def erzeuge_html(projekt, geb, abg, datum=None):
         "Raummaße, Fenster- und Türflächen aus dem Aufmaß übernehmen (Außenmaße bei Außenbauteilen).",
         "n<sub>50</sub>: Messwert verwenden, falls ein Blower-Door-Test vorliegt.",
         "Heizkörper vor Ort aufnehmen (Bauart, Höhe, Länge, Hersteller) und Normleistung aus Herstellerunterlagen übernehmen.",
-        "Ventiltyp aufnehmen und Voreinstellwerte aus dem Herstellerdiagramm ergänzen; ggf. voreinstellbare Ventileinsätze nachrüsten.",
+        "Danfoss-Ventiltyp vor Ort bestätigen (RA-N, RA-U, RAVL …) und die Voreinstellwerte gegen das aktuelle Datenblatt prüfen.",
+        "Kermi-Heizkörper mit Ventileinsatz: Auslegungsleistung, Volumenstrom und k<sub>v</sub> aus Abschnitt 3.2 bei der Bestellung für die werkseitige Voreinstellung angeben.",
         "Leitungslängen je Heizkörper plausibilisieren; bei sehr alten Netzen Querschnitte prüfen.",
         "Warmwasser- und Sperrzeitenzuschlag für die Auslegung der Wärmepumpe ergänzen.",
         "Für Förderanträge (BEG) das VdZ-Formular „Bestätigung des hydraulischen Abgleichs“ auf Basis dieser Werte ausfüllen.",

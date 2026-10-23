@@ -96,6 +96,10 @@ class HKErgebnis:
     dp_rohr: float = 0.0  # Pa
     dp_ventil: float = 0.0  # Pa
     kv: float = 0.0
+    ventil: str = ""  # Schlüssel im Ventilkatalog
+    einstellung: str = ""  # Voreinstellung bzw. "werkseitig"
+    kv_ist: float = 0.0
+    m_ist: float = 0.0  # l/h mit gewählter Voreinstellung
     hinweise: tuple = ()
 
 
@@ -113,6 +117,27 @@ class AbgleichErgebnis:
     dp_verfuegbar: float
     dp_erzeuger: float
     foerderhoehe_m: float
+    reserve: float = 0.0  # Reserve auf die Förderhöhe
+    foerderhoehe_ausl_m: float = 0.0
+    p_hyd_W: float = 0.0
+
+
+def waehle_voreinstellung(kv_erf, stufen):
+    """Voreinstellung (Schritte 0,5) mit kv-Wert am nächsten an kv_erf. Zwischenwerte linear interpoliert.
+
+    stufen: {"1": kv, ..., "7": kv, "N": kv}. Liefert (Text, kv_ist).
+    """
+    ganz = sorted((float(k), v) for k, v in stufen.items() if k != "N")
+    kandidaten = []
+    for (a, ka), (b, kb) in zip(ganz, ganz[1:]):
+        kandidaten += [(a, ka), (a + 0.5 * (b - a), 0.5 * (ka + kb))]
+    kandidaten.append(ganz[-1])
+    st, kv = min(kandidaten, key=lambda c: abs(c[1] - kv_erf))
+    text = de(st, 1) if st != int(st) else str(int(st))
+    kv_n = stufen.get("N")
+    if kv_n and kv_erf > ganz[-1][1] and abs(kv_n - kv_erf) < abs(kv - kv_erf):
+        return "N", kv_n
+    return text, kv
 
 
 def normleistung_fuer(phi_soll, n, theta_V, spreizung, theta_i):
@@ -199,6 +224,20 @@ def berechne_abgleich(projekt, gebaeude):
             hinweise.append("große Spreizung – Heizkörper deutlich überdimensioniert")
         h.hinweise = tuple(hinweise)
 
+    katalog = projekt.get("ventile", {})
+    for h, hk in zip(erg, hk_liste):
+        schluessel = "kermi" if h.getauscht else hk.get("ventil", "danfoss")
+        h.ventil = schluessel
+        v = katalog.get(schluessel, {})
+        if "stufen" in v:
+            h.einstellung, h.kv_ist = waehle_voreinstellung(h.kv, v["stufen"])
+            h.m_ist = h.kv_ist * 1000.0 * math.sqrt(h.dp_ventil / 1e5)
+            abw = h.m_ist / h.m - 1.0
+            if abs(abw) > 0.15:
+                h.hinweise += (f"Volumenstrom mit Voreinstellung {de(100 * abw, 0)} % vom Soll",)
+        else:
+            h.einstellung, h.kv_ist, h.m_ist = "werkseitig", h.kv, h.m
+
     m_ges = sum(h.m for h in erg)
     theta_R_misch = sum(h.m * h.theta_R for h in erg) / m_ges
 
@@ -215,4 +254,7 @@ def berechne_abgleich(projekt, gebaeude):
         dp_verfuegbar=dp_verf,
         dp_erzeuger=dp_erz,
         foerderhoehe_m=(dp_verf + dp_erz) / 9810.0,
+        reserve=float(hyd.get("pumpe_reserve", 0.10)),
+        foerderhoehe_ausl_m=(dp_verf + dp_erz) / 9810.0 * (1.0 + float(hyd.get("pumpe_reserve", 0.10))),
+        p_hyd_W=m_ges / 1000.0 * (dp_verf + dp_erz) / 3600.0,
     )

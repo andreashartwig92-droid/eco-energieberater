@@ -94,7 +94,8 @@
   "dp_ventil_min_mbar": 50,
   "dp_erzeuger_mbar": 0,
   "dp_erzeuger_hinweis": "Annahme: Trennung über Pufferspeicher/hydraulische Weiche",
-  "ventiltyp": "nicht angegeben"
+  "ventiltyp": "Danfoss Thermostatventile (8 Stück, Typ angenommen); neue Heizkörper Kermi x2 Profil-V mit werkseitig voreingestelltem Ventileinsatz",
+  "pumpe_reserve": 0.1
  },
  "heizkoerper": [
   {
@@ -103,7 +104,8 @@
    "beschreibung": "Typ 22, 600 × 1400",
    "phi_N": 1650,
    "n": 1.3,
-   "L_einfach": 10
+   "L_einfach": 10,
+   "ventil": "danfoss"
   },
   {
    "id": "HK-EG-02",
@@ -111,7 +113,8 @@
    "beschreibung": "Typ 22, 600 × 1400",
    "phi_N": 1650,
    "n": 1.3,
-   "L_einfach": 12
+   "L_einfach": 12,
+   "ventil": "danfoss"
   },
   {
    "id": "HK-EG-03",
@@ -119,7 +122,8 @@
    "beschreibung": "Typ 22, 600 × 600",
    "phi_N": 710,
    "n": 1.3,
-   "L_einfach": 8
+   "L_einfach": 8,
+   "ventil": "danfoss"
   },
   {
    "id": "HK-EG-04",
@@ -127,7 +131,8 @@
    "beschreibung": "Typ 22, 600 × 2000",
    "phi_N": 2360,
    "n": 1.3,
-   "L_einfach": 9
+   "L_einfach": 9,
+   "ventil": "danfoss"
   },
   {
    "id": "HK-EG-05",
@@ -135,7 +140,8 @@
    "beschreibung": "Typ 22, 900 × 700",
    "phi_N": 1190,
    "n": 1.3,
-   "L_einfach": 7
+   "L_einfach": 7,
+   "ventil": "danfoss"
   },
   {
    "id": "HK-OG-01",
@@ -143,7 +149,8 @@
    "beschreibung": "Typ 20, 600 × 1000",
    "phi_N": 800,
    "n": 1.3,
-   "L_einfach": 14
+   "L_einfach": 14,
+   "ventil": "danfoss"
   },
   {
    "id": "HK-OG-02",
@@ -151,7 +158,8 @@
    "beschreibung": "Typ 22, 600 × 1800 (neu)",
    "phi_N": 2125,
    "n": 1.3,
-   "L_einfach": 16
+   "L_einfach": 16,
+   "ventil": "kermi"
   },
   {
    "id": "HK-OG-03",
@@ -159,7 +167,8 @@
    "beschreibung": "Typ 22, 600 × 1400",
    "phi_N": 1650,
    "n": 1.3,
-   "L_einfach": 15
+   "L_einfach": 15,
+   "ventil": "danfoss"
   },
   {
    "id": "HK-OG-04",
@@ -167,7 +176,30 @@
    "beschreibung": "Typ 20, 600 × 1400",
    "phi_N": 1120,
    "n": 1.3,
-   "L_einfach": 17
+   "L_einfach": 17,
+   "ventil": "danfoss"
   }
- ]
+ ],
+ "ventile": {
+  "danfoss": {
+   "kurz": "Danfoss RA-N 15",
+   "bezeichnung": "Danfoss Thermostatventil (8 Stück vorhanden), Typ angenommen RA-N 15",
+   "stufen": {
+    "1": 0.04,
+    "2": 0.09,
+    "3": 0.15,
+    "4": 0.22,
+    "5": 0.3,
+    "6": 0.38,
+    "7": 0.45,
+    "N": 0.73
+   },
+   "hinweis": "Ventiltyp nicht aufgenommen, RA-N 15 angenommen. kv-Werte (Xp = 2 K) sind NICHT aus dem Datenblatt geprüft (Datenblatt war nicht abrufbar) – vor Einstellung mit dem Danfoss-Datenblatt abgleichen. Einstellwerte in 0,5er-Schritten, Zwischenwerte linear interpoliert."
+  },
+  "kermi": {
+   "kurz": "Kermi x2 Profil-V",
+   "bezeichnung": "Kermi therm-x2 Profil-V mit Ventileinsatz",
+   "hinweis": "Werkseitig auf die Heizkörperleistung voreingestellt. Zur Kontrolle ist der erforderliche kv-Wert je Heizkörper berechnet; bei der Bestellung Auslegungsleistung (Φ soll), Volumenstrom und Vorlauf/Rücklauf angeben."
+  }
+ }
 }
