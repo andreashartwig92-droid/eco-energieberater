@@ -34,3 +34,20 @@ oder die Temperatur eines beheizten Nachbarraums als Zahl.
 
 Heizkörper, die für den Ziel-Vorlauf zu klein sind, werden als Tausch markiert und mit der nötigen
 Normleistung weitergerechnet (`"tausch_kritische": false` rechnet stattdessen mit allen Bestandsheizkörpern).
+
+## US-Musterunterlagen (Einfamilienhaus)
+
+Zwei englische Musterunterlagen für ein fiktives US-Einfamilienhaus (New Jersey, Klimazone 5A), Format US Letter:
+
+| Datei | Inhalt |
+| --- | --- |
+| `beispiele/usa_musterhaus_hvac_design.pdf` | HVAC Design Package: raumweise Lasten (Aufbau ACCA Manual J), Geräteauswahl Wärmepumpe mit Bivalenzpunkt (Manual S), Kanalnetz mit Reibungsrate und Grundriss (Manual D), Lüftung nach ASHRAE 62.2 |
+| `beispiele/usa_musterhaus_energy_report.pdf` | Energy Code Compliance Report nach IECC 2021 R405: Entwurf gegen Standard Reference Design, Jahresenergie und -kosten, Verbesserungsoptionen, Prüfliste für die Abnahme |
+
+```bash
+python3 -m usa beispiele/usa_musterhaus.json
+```
+
+Die Rechnung ist vereinfacht (pauschale CLTD- und Solarfaktoren, Einzonen-Stundenmodell mit synthetischem Wetterjahr)
+und zeigt Aufbau und Inhalt der Unterlagen. Für Bauanträge werden die Berechnungen mit ACCA-anerkannter bzw. vom
+Code Official zugelassener Software und Standortdaten erstellt.

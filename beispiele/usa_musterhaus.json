@@ -1,0 +1,169 @@
+{
+  "project": {
+    "title": "Sample Residence – New Construction",
+    "address": "123 Example Lane, Morristown, NJ 07960 (fictitious)",
+    "client": "Example Builders LLC (fictitious)",
+    "description": "Two-story single-family home, 4 bedrooms, 2,400 sq ft conditioned floor area, slab-on-grade, vented attic. All-electric: ducted cold-climate heat pump, ERV, heat pump water heater. Air handler and all ducts inside conditioned space (open-web floor trusses between floors).",
+    "code": "2021 IECC (as adopted in New Jersey)",
+    "sample": true,
+    "note": "Fictitious house. Design conditions, construction data and equipment performance are illustrative values, not customer data.",
+    "prepared_by": {
+      "company": "[Company Name] – Remote HVAC & Energy Design",
+      "name": "[Designer Name]",
+      "credentials": "[e.g. ACCA Manual J/D training · RESNET HERS Rater · ASHRAE BEMP]",
+      "email": "[email]"
+    }
+  },
+  "climate": {
+    "location": "Morristown, NJ (Morris County)",
+    "climate_zone": "5A",
+    "latitude": 40.8,
+    "elevation_ft": 400,
+    "heating_db": 8,
+    "cooling_db": 89,
+    "cooling_wb": 73,
+    "daily_range": "M",
+    "grains_diff": 35,
+    "indoor_heating": 70,
+    "indoor_cooling": 75,
+    "indoor_rh": 50,
+    "acf": 1.0,
+    "source": "Illustrative values – take from ACCA Manual J Table 1A for the actual site"
+  },
+  "construction": {
+    "wall":    {"desc": "2x6 @ 16\" o.c., R-21 cavity + R-5 continuous exterior insulation", "U": 0.043},
+    "ceiling": {"desc": "Ceiling below vented attic, R-60 blown cellulose, raised-heel trusses", "U": 0.024},
+    "window":  {"desc": "Double-pane low-e, argon, vinyl frame (NFRC)", "U": 0.27, "SHGC": 0.35},
+    "door":    {"desc": "Insulated fiberglass entry door", "U": 0.20},
+    "slab":    {"desc": "Slab-on-grade, R-10 vertical edge insulation 4 ft", "F": 0.52}
+  },
+  "cooling_factors": {
+    "wall_cltd": 18,
+    "door_cltd": 18,
+    "ceiling_cltd": 47,
+    "psf": {"N": 20, "E": 68, "S": 35, "W": 68},
+    "iac": 0.75,
+    "source": "Simplified CLTD / peak solar factors, medium daily range, 40°N – illustrative"
+  },
+  "infiltration": {"ach50": 2.5, "n_heating": 16, "n_cooling": 20, "source": "Design target, to be verified by blower door test"},
+  "internal": {"people_sensible": 230, "people_latent": 200},
+  "ventilation": {
+    "type": "Balanced ERV, continuous, dedicated ducts",
+    "sre_heating": 0.70,
+    "se_cooling": 0.65,
+    "le_cooling": 0.50,
+    "fan_w_per_cfm": 0.60,
+    "supply_points": {"Living Room": 25, "Study": 20, "Primary Bedroom": 20, "Bedroom 2": 15, "Bedroom 3": 15, "Bedroom 4": 15},
+    "exhaust_points": {"Primary Bath": 40, "Hall / Bath 2": 30, "Mudroom / Laundry / Powder": 40},
+    "local_exhaust": [
+      ["Kitchen", "Range hood, 100 cfm intermittent, ducted to outside"],
+      ["Primary Bath", "ERV exhaust 40 cfm continuous (meets 20 cfm continuous)"],
+      ["Bath 2", "ERV exhaust 30 cfm continuous (meets 20 cfm continuous)"],
+      ["Powder Room", "ERV exhaust 20 cfm continuous"]
+    ]
+  },
+  "floors": [
+    {"name": "First Floor", "ceiling_h": 9, "wall_h": 10, "slab": true, "attic": false},
+    {"name": "Second Floor", "ceiling_h": 8, "wall_h": 9, "slab": false, "attic": true}
+  ],
+  "house": {"width": 40, "depth": 30, "bedrooms": 4},
+  "rooms": [
+    {"name": "Study", "floor": 0, "x": 0, "y": 0, "w": 12, "d": 14, "people": 1, "appliances": 300,
+     "windows": [{"o": "N", "area": 15, "text": "3'x5'"}, {"o": "W", "area": 15, "text": "3'x5'"}]},
+    {"name": "Entry / Stair", "floor": 0, "x": 12, "y": 0, "w": 16, "d": 14,
+     "windows": [{"o": "N", "area": 15, "text": "3'x5'"}], "doors": [{"o": "N", "area": 20, "text": "Front door 3'x6'8\""}]},
+    {"name": "Mudroom / Laundry / Powder", "floor": 0, "x": 28, "y": 0, "w": 12, "d": 14,
+     "windows": [{"o": "N", "area": 6, "text": "2'x3'"}, {"o": "E", "area": 12, "text": "3'x4'"}],
+     "doors": [{"o": "E", "area": 20, "text": "Side door 3'x6'8\""}]},
+    {"name": "Living Room", "floor": 0, "x": 0, "y": 14, "w": 20, "d": 16, "people": 2,
+     "windows": [{"o": "S", "area": 30, "text": "2 × 3'x5'"}, {"o": "S", "area": 40, "text": "Sliding glass door 6'x6'8\""},
+                 {"o": "W", "area": 15, "text": "3'x5'"}]},
+    {"name": "Kitchen / Dining", "floor": 0, "x": 20, "y": 14, "w": 20, "d": 16, "people": 2, "appliances": 1200,
+     "windows": [{"o": "S", "area": 24, "text": "2 × 3'x4'"}, {"o": "E", "area": 30, "text": "2 × 3'x5'"}]},
+    {"name": "Bedroom 3", "floor": 1, "x": 0, "y": 0, "w": 13, "d": 14,
+     "windows": [{"o": "N", "area": 15, "text": "3'x5'"}, {"o": "W", "area": 15, "text": "3'x5'"}]},
+    {"name": "Hall / Bath 2", "floor": 1, "x": 13, "y": 0, "w": 14, "d": 14,
+     "windows": [{"o": "N", "area": 6, "text": "2'x3' (bath)"}, {"o": "N", "area": 12, "text": "3'x4' (hall)"}]},
+    {"name": "Bedroom 4", "floor": 1, "x": 27, "y": 0, "w": 13, "d": 14,
+     "windows": [{"o": "N", "area": 15, "text": "3'x5'"}, {"o": "E", "area": 15, "text": "3'x5'"}]},
+    {"name": "Primary Bedroom", "floor": 1, "x": 0, "y": 14, "w": 18, "d": 16,
+     "windows": [{"o": "S", "area": 30, "text": "2 × 3'x5'"}, {"o": "W", "area": 15, "text": "3'x5'"}]},
+    {"name": "Primary Bath", "floor": 1, "x": 18, "y": 14, "w": 10, "d": 16,
+     "windows": [{"o": "S", "area": 12, "text": "3'x4'"}]},
+    {"name": "Bedroom 2", "floor": 1, "x": 28, "y": 14, "w": 12, "d": 16,
+     "windows": [{"o": "S", "area": 15, "text": "3'x5'"}, {"o": "E", "area": 15, "text": "3'x5'"}]}
+  ],
+  "equipment": {
+    "type": "Variable-capacity cold-climate air-source heat pump, ducted (2-ton class)",
+    "model": "Generic example – illustrative expanded performance data (not a real product)",
+    "ahri_ref": "[AHRI reference no.]",
+    "rated": {"SEER2": 18.0, "HSPF2": 9.5},
+    "cooling_at_design": {"total": 20000, "sensible": 14800, "cfm": 700,
+                          "conditions": "89 °F outdoor, 75 °F / 63 °F WB entering, 700 cfm (max. capacity, installer cap setting)"},
+    "heating_capacity": [[-5, 16000], [5, 19400], [17, 21800], [47, 24000], [62, 25500]],
+    "heating_cop": [[-5, 1.8], [5, 2.1], [17, 2.6], [47, 3.8], [62, 4.4]],
+    "cooling_eer": [[75, 18.0], [82, 16.0], [95, 12.5], [105, 10.0]],
+    "aux_heat_kw": 5.0,
+    "blower_cfm_heating": 700,
+    "blower_cfm_cooling": 700,
+    "cooling_limits": [0.90, 1.30],
+    "cooling_limits_note": "Window applied in this sample for a variable-capacity heat pump in a heating-dominated climate. Confirm the limits of the Manual S edition referenced by the AHJ.",
+    "heating_load_zero_f": 65
+  },
+  "ducts": {
+    "material": "Rigid round galvanized branch ducts, rectangular galvanized trunk 8\" high, all in floor-truss space inside conditioned envelope; mastic-sealed",
+    "blower_esp": 0.50,
+    "components": [["Filter, MERV 13, 4\" media cabinet", 0.12], ["Electric heat strip (5 kW)", 0.04],
+                   ["Supply outlet (register / diffuser)", 0.03], ["Return grille", 0.03], ["Balancing damper", 0.03]],
+    "ahu": {"floor": 0, "x": 32, "y": 9, "text": "Air handler in mechanical closet (Mudroom)"},
+    "trunk_y": 14,
+    "fitting_el_supply": 60,
+    "fitting_el_return": 50,
+    "riser_ft": 10,
+    "max_cfm_per_run": 120,
+    "v_max_supply": 900,
+    "v_max_return": 700,
+    "returns": [
+      {"name": "RG-1 Central return, 1st floor", "floor": 0, "x": 16, "y": 5, "serves": 0},
+      {"name": "RG-2 Central return, 2nd floor hall", "floor": 1, "x": 16, "y": 5, "serves": 1}
+    ],
+    "transfer_rooms": ["Study", "Bedroom 3", "Bedroom 4", "Primary Bedroom", "Bedroom 2"]
+  },
+  "energy": {
+    "price_per_kwh": 0.19,
+    "price_source": "Illustrative residential electricity price – use approved source per code",
+    "thermostat": {"heating": 72, "cooling": 75},
+    "weather_seed": 21,
+    "mass_btu_per_f_ft2": 4.0,
+    "dhw": {"t_hot": 120, "t_mains": 55},
+    "proposed": {
+      "label": "Proposed design",
+      "wall_U": 0.043, "ceiling_U": 0.024, "window_U": 0.27, "window_SHGC": 0.35, "door_U": 0.20, "slab_F": 0.52,
+      "ach50": 2.5, "window_area": "as designed",
+      "heat_pump": "proposed", "dse": 1.00,
+      "vent_sre": 0.70, "vent_w_per_cfm": 0.60,
+      "dhw_uef": 3.5, "dhw_desc": "Heat pump water heater, 50 gal, UEF 3.5"
+    },
+    "reference": {
+      "label": "Standard reference design",
+      "wall_U": 0.045, "ceiling_U": 0.024, "window_U": 0.30, "window_SHGC": 0.40, "door_U": 0.30, "slab_F": 0.52,
+      "ach50": 3.0, "window_area": "15% of CFA, equal on 4 orientations",
+      "heat_pump": "reference", "dse": 0.88,
+      "vent_sre": 0.0, "vent_w_per_cfm": 0.83,
+      "dhw_uef": 0.92, "dhw_desc": "Electric storage, 50 gal, federal minimum (UEF 0.92)"
+    },
+    "reference_heat_pump": {
+      "desc": "Air-source heat pump at federal minimum efficiency (SEER2 14.3 / HSPF2 7.5)",
+      "heating_capacity": [[-5, 8000], [5, 11000], [17, 14500], [47, 24000], [62, 25500]],
+      "heating_cop": [[-5, 1.5], [5, 1.8], [17, 2.2], [47, 3.4], [62, 3.9]],
+      "cooling_eer": [[75, 13.5], [82, 12.0], [95, 10.0], [105, 8.5]]
+    },
+    "upgrades": [
+      {"name": "Triple-pane windows (U-0.18, SHGC 0.30)", "changes": {"window_U": 0.18, "window_SHGC": 0.30}},
+      {"name": "Air sealing to 1.5 ACH50", "changes": {"ach50": 1.5}},
+      {"name": "Walls R-21 + R-10 c.i. (U-0.036)", "changes": {"wall_U": 0.036}},
+      {"name": "All three envelope upgrades", "changes": {"window_U": 0.18, "window_SHGC": 0.30, "ach50": 1.5, "wall_U": 0.036}}
+    ],
+    "pv": {"kw": 6.0, "kwh_per_kw": 1200, "source": "Illustrative yield – verify with NREL PVWatts for the site"}
+  }
+}
