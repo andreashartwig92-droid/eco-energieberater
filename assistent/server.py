@@ -20,9 +20,8 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-import anthropic
-
-from .ki import Assistent, pruefe_verlauf
+from .ki_lokal import LokalesModellFehler
+from .verlauf import ROLLEN, erzeuge_assistent, pruefe_verlauf
 from .wissen import lade_wissen
 
 log = logging.getLogger("assistent.server")
@@ -60,10 +59,18 @@ class Anwendung:
         if ki is None:
             wissen, dateien = lade_wissen(konfig.wissen_ordner)
             self.wissen_dateien = dateien
-            ki = Assistent(konfig, wissen)
+            ki = erzeuge_assistent(konfig, wissen)
         else:
             self.wissen_dateien = []
         self.ki = ki
+        self.rollen = ROLLEN.get(konfig.backend, ROLLEN["claude"])
+
+    def status(self):
+        """Erreichbarkeit des Modells (nur lokal prüfbar)."""
+        if hasattr(self.ki, "pruefe_verbindung"):
+            ok, meldung = self.ki.pruefe_verbindung()
+            return {"bereit": ok, "meldung": meldung}
+        return {"bereit": True, "meldung": "Claude-API"}
 
     def angemeldet(self, header_wert):
         if not self.konfig.passwort_noetig:
@@ -134,8 +141,8 @@ class Handler(BaseHTTPRequestHandler):
         if pfad == "/api/info":
             k = self.app.konfig
             return self._json(HTTPStatus.OK, {
-                "name": k.name, "modell": k.modell, "passwort_noetig": k.passwort_noetig,
-                "wissen": self.app.wissen_dateien,
+                "name": k.name, "modell": k.modell, "backend": k.backend, "passwort_noetig": k.passwort_noetig,
+                "wissen": self.app.wissen_dateien, **self.app.status(),
             })
         if pfad.startswith("/berichte/"):
             return self._bericht(pfad[len("/berichte/"):])
@@ -174,7 +181,7 @@ class Handler(BaseHTTPRequestHandler):
             frage = daten.get("frage")
             if not isinstance(frage, str) or not frage.strip():
                 raise ValueError("frage fehlt")
-            verlauf = pruefe_verlauf(daten.get("verlauf"), self.app.konfig.max_verlauf_nachrichten)
+            verlauf = pruefe_verlauf(daten.get("verlauf"), self.app.konfig.max_verlauf_nachrichten, self.app.rollen)
         except (ValueError, UnicodeDecodeError, AttributeError) as e:
             return self._fehler(HTTPStatus.BAD_REQUEST, f"Ungültige Anfrage: {e}")
 
@@ -182,29 +189,18 @@ class Handler(BaseHTTPRequestHandler):
         try:
             for ereignis in self.app.ki.antworten(verlauf, frage.strip()):
                 self._sse(ereignis)
-        except (anthropic.AuthenticationError, TypeError) as e:
-            # TypeError wirft das SDK, wenn gar kein Schlüssel gefunden wurde
-            if isinstance(e, TypeError) and "authentication" not in str(e).lower():
-                raise
-            log.error("ANTHROPIC_API_KEY fehlt oder ist ungültig: %s", e)
-            self._sse({"typ": "fehler", "text": "Der Server ist nicht korrekt eingerichtet (API-Schlüssel). Bitte den Betreiber informieren."})
-        except anthropic.RateLimitError:
-            self._sse({"typ": "fehler", "text": "Das KI-Modell ist gerade ausgelastet. Bitte in einer Minute erneut versuchen."})
-        except anthropic.BadRequestError as e:
-            log.error("Ungültige Anfrage an die API: %s", e.message)
-            self._sse({"typ": "fehler", "text": "Die Anfrage konnte nicht verarbeitet werden. Bitte ein neues Gespräch beginnen."})
-        except anthropic.APIStatusError as e:
-            log.error("API-Fehler %s: %s", e.status_code, e.message)
-            self._sse({"typ": "fehler", "text": "Der KI-Dienst hat einen Fehler gemeldet. Bitte später erneut versuchen."})
-        except anthropic.APIConnectionError:
-            log.error("Keine Verbindung zur API")
-            self._sse({"typ": "fehler", "text": "Keine Verbindung zum KI-Dienst."})
+        except LokalesModellFehler as e:
+            log.error("Lokales Modell: %s", e)
+            self._sse({"typ": "fehler", "text": str(e)})
         except (BrokenPipeError, ConnectionResetError):
             log.info("Client hat die Verbindung beendet")
             return
-        except Exception:  # noqa: BLE001 – der Server soll weiterlaufen
-            log.exception("Unerwarteter Fehler")
-            self._sse({"typ": "fehler", "text": "Unerwarteter Fehler im Server."})
+        except Exception as e:  # noqa: BLE001 – der Server soll weiterlaufen
+            text = _api_fehlertext(e)
+            if text is None:
+                log.exception("Unerwarteter Fehler")
+                text = "Unerwarteter Fehler im Server."
+            self._sse({"typ": "fehler", "text": text})
         self._sse_ende()
 
     # --- Server-Sent Events -----------------------------------------------
@@ -232,6 +228,33 @@ class Handler(BaseHTTPRequestHandler):
             pass
 
 
+def _api_fehlertext(e):
+    """Verständliche Meldung für Fehler des anthropic-SDK; None, wenn es kein solcher ist."""
+    if "anthropic" not in type(e).__module__ and not isinstance(e, TypeError):
+        return None
+    import anthropic
+    if isinstance(e, TypeError):
+        if "authentication" not in str(e).lower():
+            return None
+        log.error("ANTHROPIC_API_KEY fehlt: %s", e)
+        return "Der Server ist nicht korrekt eingerichtet (API-Schlüssel). Bitte den Betreiber informieren."
+    if isinstance(e, anthropic.AuthenticationError):
+        log.error("ANTHROPIC_API_KEY ungültig")
+        return "Der Server ist nicht korrekt eingerichtet (API-Schlüssel). Bitte den Betreiber informieren."
+    if isinstance(e, anthropic.RateLimitError):
+        return "Das KI-Modell ist gerade ausgelastet. Bitte in einer Minute erneut versuchen."
+    if isinstance(e, anthropic.BadRequestError):
+        log.error("Ungültige Anfrage an die API: %s", e.message)
+        return "Die Anfrage konnte nicht verarbeitet werden. Bitte ein neues Gespräch beginnen."
+    if isinstance(e, anthropic.APIStatusError):
+        log.error("API-Fehler %s: %s", e.status_code, e.message)
+        return "Der KI-Dienst hat einen Fehler gemeldet. Bitte später erneut versuchen."
+    if isinstance(e, anthropic.APIConnectionError):
+        log.error("Keine Verbindung zur API")
+        return "Keine Verbindung zum KI-Dienst."
+    return None
+
+
 class Server(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
@@ -247,12 +270,14 @@ def erzeuge_server(konfig, ki=None):
 
 def starte(konfig):
     import os
-    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+    if konfig.backend == "claude" and not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
         log.warning("ANTHROPIC_API_KEY ist nicht gesetzt – Anfragen schlagen fehl, sofern kein anderes "
                     "Anmeldeverfahren des SDK (z. B. `ant auth login`) eingerichtet ist")
     server = erzeuge_server(konfig)
-    log.info("%s läuft auf http://%s:%d (Modell %s, Passwort %s)", konfig.name, konfig.host, konfig.port,
-             konfig.modell, "aktiv" if konfig.passwort_noetig else "AUS – nur lokal")
+    status = server.app.status()
+    (log.info if status["bereit"] else log.warning)("Modell: %s", status["meldung"])
+    log.info("%s läuft auf http://%s:%d (Backend %s, Modell %s, Passwort %s)", konfig.name, konfig.host, konfig.port,
+             konfig.backend, konfig.modell, "aktiv" if konfig.passwort_noetig else "AUS – nur lokal")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

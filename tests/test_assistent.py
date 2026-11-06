@@ -303,7 +303,7 @@ class FakeClient:
 class Gespraech(unittest.TestCase):
     def test_werkzeugschleife(self):
         from assistent.ki import Assistent
-        konfig = Konfig(host="127.0.0.1", effort="low", fallback=True)
+        konfig = Konfig(host="127.0.0.1", backend="claude", effort="low", fallback=True)
         client = FakeClient()
         ki = Assistent(konfig, "Wissen", client=client)
         ereignisse = list(ki.antworten([], "Was leistet ein Heizkörper mit 1000 W bei 75/65?"))
@@ -339,7 +339,186 @@ class Gespraech(unittest.TestCase):
     def test_ohne_fallback(self):
         from assistent.ki import Assistent
         client = FakeClient()
-        ki = Assistent(Konfig(fallback=False), "", client=client)
+        ki = Assistent(Konfig(backend="claude", fallback=False), "", client=client)
         list(ki.antworten([], "Hallo"))
         self.assertNotIn("fallbacks", client.anfragen[0])
         self.assertNotIn("betas", client.anfragen[0])
+
+
+# --- Lokales Modell (Ollama) mit nachgebautem HTTP ----------------------------------
+
+import io
+import urllib.error
+
+
+class _OllamaAntwort(io.BytesIO):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+class FakeOllama:
+    """Nachgebautes /api/chat: erste Runde Werkzeugaufruf, zweite Runde Text (NDJSON-Stream)."""
+
+    def __init__(self, modell_fehlt=False, nicht_erreichbar=False):
+        self.anfragen = []
+        self.modell_fehlt = modell_fehlt
+        self.nicht_erreichbar = nicht_erreichbar
+
+    def __call__(self, anfrage, timeout=None):
+        if self.nicht_erreichbar:
+            raise urllib.error.URLError("connection refused")
+        if anfrage.full_url.endswith("/api/tags"):
+            return _OllamaAntwort(json.dumps({"models": [{"name": "qwen3:8b"}]}).encode())
+        daten = json.loads(anfrage.data)
+        self.anfragen.append(daten)
+        if self.modell_fehlt:
+            raise urllib.error.HTTPError(anfrage.full_url, 404, "nf", {}, io.BytesIO(b'{"error":"model \\"x\\" not found"}'))
+        if len(self.anfragen) == 1:
+            stuecke = [
+                {"message": {"role": "assistant", "content": "", "tool_calls": [
+                    {"function": {"name": "heizkoerper_leistung",
+                                  "arguments": {"phi_N": 1000, "theta_V": 75, "theta_R": 65, "theta_i": 20}}}]}},
+                {"message": {"role": "assistant", "content": ""}, "done": True, "done_reason": "stop",
+                 "prompt_eval_count": 100, "eval_count": 20},
+            ]
+        else:
+            stuecke = [
+                {"message": {"role": "assistant", "content": "Der Heizkörper "}},
+                {"message": {"role": "assistant", "content": "liefert 1.000 W."}},
+                {"message": {"role": "assistant", "content": ""}, "done": True, "done_reason": "stop",
+                 "prompt_eval_count": 150, "eval_count": 10},
+            ]
+        return _OllamaAntwort("".join(json.dumps(s) + "\n" for s in stuecke).encode("utf-8"))
+
+
+class LokalesModell(unittest.TestCase):
+    def _ki(self, **kw):
+        from assistent.ki_lokal import LokalerAssistent
+        fake = FakeOllama(**kw)
+        return LokalerAssistent(Konfig(backend="lokal", denken=False), "Wissen", oeffner=fake), fake
+
+    def test_werkzeugschleife(self):
+        ki, fake = self._ki()
+        ereignisse = list(ki.antworten([], "Was leistet ein Heizkörper mit 1000 W bei 75/65?"))
+        typen = [e["typ"] for e in ereignisse]
+        self.assertEqual(typen, ["werkzeug", "werkzeug", "werkzeug", "text", "text", "fertig"])
+        self.assertEqual([e["status"] for e in ereignisse[:3]], ["geplant", "laeuft", "fertig"])
+
+        fertig = ereignisse[-1]
+        verlauf = fertig["verlauf"]
+        self.assertEqual([n["role"] for n in verlauf], ["user", "assistant", "tool", "assistant"])
+        self.assertEqual(verlauf[2]["tool_name"], "heizkoerper_leistung")
+        self.assertAlmostEqual(json.loads(verlauf[2]["content"])["leistung_W"], 1000)
+        self.assertIn("tool_calls", verlauf[1])
+        self.assertEqual(verlauf[3]["content"], "Der Heizkörper liefert 1.000 W.")
+        self.assertEqual(fertig["nutzung"], {"eingabe": 250, "ausgabe": 30})
+        self.assertEqual(fertig["modell"], "qwen3:8b")
+
+        # Anfrage an Ollama
+        a = fake.anfragen[0]
+        self.assertEqual(a["model"], "qwen3:8b")
+        self.assertTrue(a["stream"])
+        self.assertIs(a["think"], False)
+        self.assertEqual(a["options"]["num_ctx"], 16384)
+        self.assertEqual(a["messages"][0]["role"], "system")
+        self.assertIn("Wissen", a["messages"][0]["content"])
+        self.assertEqual({t["function"]["name"] for t in a["tools"]}, set(werkzeuge.FUNKTIONEN))
+        self.assertNotIn("eager_input_streaming", json.dumps(a["tools"]))
+        # zweite Runde enthält den Werkzeugaufruf und das Ergebnis
+        rollen = [m["role"] for m in fake.anfragen[1]["messages"]]
+        self.assertEqual(rollen, ["system", "user", "assistant", "tool"])
+
+    def test_argumente_als_text(self):
+        from assistent.ki_lokal import LokalerAssistent
+        fake = FakeOllama()
+        alt = fake.__call__
+
+        def mit_text(anfrage, timeout=None):
+            antwort = alt(anfrage, timeout)
+            if len(fake.anfragen) == 1:
+                daten = antwort.getvalue().decode().replace(
+                    '"arguments": {"phi_N": 1000, "theta_V": 75, "theta_R": 65, "theta_i": 20}',
+                    '"arguments": "{\\"phi_N\\": 1000, \\"theta_V\\": 75, \\"theta_R\\": 65}"')
+                return _OllamaAntwort(daten.encode())
+            return antwort
+        ki = LokalerAssistent(Konfig(backend="lokal"), "", oeffner=mit_text)
+        fertig = list(ki.antworten([], "?"))[-1]
+        self.assertAlmostEqual(json.loads(fertig["verlauf"][2]["content"])["leistung_W"], 1000)
+
+    def test_modell_ohne_denkmodus(self):
+        from assistent.ki_lokal import LokalerAssistent
+        fake = FakeOllama()
+        alt = fake.__call__
+        abgelehnt = []
+
+        def ohne_think(anfrage, timeout=None):
+            if anfrage.full_url.endswith("/api/chat") and "think" in json.loads(anfrage.data):
+                abgelehnt.append(1)
+                raise urllib.error.HTTPError(anfrage.full_url, 400, "bad", {},
+                                             io.BytesIO(b'{"error":"\"llama3.1:8b\" does not support thinking"}'))
+            return alt(anfrage, timeout)
+        ki = LokalerAssistent(Konfig(backend="lokal", modell="llama3.1:8b", denken=False), "", oeffner=ohne_think)
+        fertig = list(ki.antworten([], "?"))[-1]
+        self.assertEqual(fertig["verlauf"][-1]["content"], "Der Heizkörper liefert 1.000 W.")
+        self.assertEqual(len(abgelehnt), 1)  # nur einmal probiert, danach gemerkt
+        self.assertTrue(all("think" not in a for a in fake.anfragen))
+
+    def test_modell_fehlt(self):
+        from assistent.ki_lokal import LokalesModellFehler
+        ki, _ = self._ki(modell_fehlt=True)
+        with self.assertRaises(LokalesModellFehler) as cm:
+            list(ki.antworten([], "Hallo"))
+        self.assertIn("ollama pull qwen3:8b", str(cm.exception))
+
+    def test_nicht_erreichbar(self):
+        from assistent.ki_lokal import LokalesModellFehler
+        ki, _ = self._ki(nicht_erreichbar=True)
+        with self.assertRaises(LokalesModellFehler) as cm:
+            list(ki.antworten([], "Hallo"))
+        self.assertIn("ollama serve", str(cm.exception))
+        ok, meldung = ki.pruefe_verbindung()
+        self.assertFalse(ok)
+
+    def test_pruefe_verbindung(self):
+        ki, _ = self._ki()
+        self.assertEqual(ki.pruefe_verbindung()[0], True)
+        ki.konfig.modell = "llama3.1:8b"
+        ok, meldung = ki.pruefe_verbindung()
+        self.assertFalse(ok)
+        self.assertIn("ollama pull llama3.1:8b", meldung)
+
+    def test_verlauf_mit_tool_rolle(self):
+        from assistent.verlauf import ROLLEN
+        v = [{"role": "user", "content": "a"}, {"role": "assistant", "content": ""}, {"role": "tool", "content": "{}"}]
+        self.assertEqual(pruefe_verlauf(v, 10, ROLLEN["lokal"]), v)
+        with self.assertRaises(ValueError):
+            pruefe_verlauf(v, 10, ROLLEN["claude"])
+
+
+class ServerLokalFehler(unittest.TestCase):
+    def test_fehler_des_lokalen_modells_wird_gemeldet(self):
+        from assistent.ki_lokal import LokalerAssistent
+        konfig = Konfig(host="127.0.0.1", port=0, backend="lokal")
+        ki = LokalerAssistent(konfig, "", oeffner=FakeOllama(nicht_erreichbar=True))
+        server = erzeuge_server(konfig, ki)
+        port = server.server_address[1]
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        try:
+            c = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+            c.request("POST", "/api/chat", body=json.dumps({"frage": "Hi"}), headers={"Content-Type": "application/json"})
+            a = c.getresponse()
+            daten = a.read().decode()
+            self.assertEqual(a.status, 200)
+            self.assertIn("ollama serve", daten)
+            self.assertIn('"typ": "fehler"', daten)
+            c.request("GET", "/api/info")
+            info = json.loads(c.getresponse().read())
+            self.assertEqual((info["backend"], info["bereit"]), ("lokal", False))
+            c.close()
+        finally:
+            server.shutdown()
+            server.server_close()

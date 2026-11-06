@@ -39,9 +39,9 @@ def _konfig_lokal():
 
 
 def terminal(konfig, einzelfrage=None):
-    from .ki import Assistent
+    from .verlauf import erzeuge_assistent
     wissen, _ = lade_wissen(konfig.wissen_ordner)
-    ki = Assistent(konfig, wissen)
+    ki = erzeuge_assistent(konfig, wissen)
     verlauf = []
     while True:
         frage = einzelfrage or input("\nSie: ").strip()

@@ -2,12 +2,13 @@ FROM python:3.13-slim
 
 # Chromium für PDF-Berichte (optional – ohne Chromium entstehen nur HTML-Berichte)
 RUN apt-get update && apt-get install -y --no-install-recommends chromium fonts-dejavu-core \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean
 ENV CHROMIUM=/usr/bin/chromium
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Nur für KI_BACKEND=claude nötig; der lokale Betrieb (Ollama) braucht keine Zusatzpakete.
+COPY requirements-claude.txt .
+RUN pip install --no-cache-dir -r requirements-claude.txt
 
 COPY heizlast ./heizlast
 COPY assistent ./assistent

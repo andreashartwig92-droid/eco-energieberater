@@ -1,13 +1,17 @@
 # systemd-Dienst ohne Docker. Installation:
+#   curl -fsSL https://ollama.com/install.sh | sh        # lokales Modell; legt den Dienst "ollama" an
+#   ollama pull qwen3:8b
 #   sudo useradd -r -s /usr/sbin/nologin ki
 #   sudo git clone <repo> /opt/eco-energieberater && cd /opt/eco-energieberater
-#   sudo python3 -m venv .venv && sudo .venv/bin/pip install -r requirements.txt
-#   sudo cp deploy/.env.beispiel /etc/eco-assistent.env && sudo chmod 600 /etc/eco-assistent.env  (Werte eintragen, KI_HOST=127.0.0.1)
+#   sudo python3 -m venv .venv            # Pakete nur für KI_BACKEND=claude: .venv/bin/pip install -r requirements-claude.txt
+#   sudo cp deploy/.env.beispiel /etc/eco-assistent.env && sudo chmod 600 /etc/eco-assistent.env
+#       (Werte eintragen: KI_HOST=127.0.0.1, KI_OLLAMA_URL=http://127.0.0.1:11434, KI_WISSEN/KI_BERICHTE auf /opt/eco-energieberater/...)
 #   sudo mkdir -p berichte && sudo chown -R ki /opt/eco-energieberater/berichte
 #   sudo cp deploy/eco-assistent.service /etc/systemd/system/ && sudo systemctl enable --now eco-assistent
 [Unit]
 Description=eco Energieberater-KI (selbst gehosteter Assistent)
-After=network.target
+After=network.target ollama.service
+Wants=ollama.service
 
 [Service]
 Type=simple

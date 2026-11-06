@@ -1,0 +1,2 @@
+# Nur für KI_BACKEND=claude. Der lokale Betrieb (Ollama) braucht nur die Python-Standardbibliothek.
+anthropic>=2.6,<3

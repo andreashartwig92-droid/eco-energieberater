@@ -244,7 +244,8 @@
   laden(); zeichne();
   fetch("/api/info").then(r => r.json()).then(info => {
     $("titel").textContent = info.name || "Energieberater-KI"; document.title = info.name || document.title;
-    $("modell").textContent = info.modell || "";
+    $("modell").textContent = (info.backend === "lokal" ? "lokales Modell · " : "") + (info.modell || "");
+    if (info.bereit === false) { $("modell").textContent += " – nicht bereit"; $("modell").title = info.meldung || ""; }
     passwortNoetig = !!info.passwort_noetig;
     if (passwortNoetig && !passwort) $("login").showModal();
   }).catch(() => {});

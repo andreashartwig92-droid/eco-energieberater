@@ -1,5 +1,33 @@
-# Start:  cp deploy/.env.beispiel deploy/.env  →  Werte eintragen  →  docker compose -f deploy/docker-compose.yml up -d --build
+# Betrieb ohne fremde API: Ollama (lokales Modell) + Assistent.
+#   cp deploy/.env.beispiel deploy/.env   → Werte eintragen
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#   docker compose -f deploy/docker-compose.yml logs -f modell-laden   (einmaliger Download des Modells)
+# Für Claude statt lokalem Modell: KI_BACKEND=claude in .env, die Dienste ollama/modell-laden können dann entfallen.
 services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+    # NVIDIA-GPU (mit installiertem NVIDIA Container Toolkit) – Kommentar entfernen:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  modell-laden:
+    image: ollama/ollama:latest
+    env_file: .env
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c", "ollama pull \"$${KI_MODELL:-qwen3:8b}\""]
+    depends_on:
+      - ollama
+    restart: "no"
+
   assistent:
     build:
       context: ..
@@ -10,6 +38,10 @@ services:
     volumes:
       - ../wissen:/app/wissen:ro        # Wissensbasis ohne Neubau ändern (Container danach neu starten)
       - berichte:/app/berichte
+    depends_on:
+      - ollama
     restart: unless-stopped
+
 volumes:
+  ollama:
   berichte:
