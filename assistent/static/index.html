@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Energieberater-KI</title>
+<style>
+  :root {
+    --bg: #f4f6f3; --card: #ffffff; --text: #1d2a22; --muted: #5f6f66; --line: #d9e0db;
+    --akzent: #1f7a4d; --akzent-hell: #e3f2ea; --nutzer: #e9efe9; --warn: #b3261e; --warn-hell: #fde8e6;
+    --chip: #eef2ef;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121715; --card: #1b221e; --text: #e6ece8; --muted: #9aa8a0; --line: #2c3630;
+      --akzent: #4fbf86; --akzent-hell: #1e3328; --nutzer: #243029; --warn: #ff7b6e; --warn-hell: #3a2220;
+      --chip: #243029;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--card); }
+  header h1 { font-size: 17px; margin: 0; flex: 1; font-weight: 600; }
+  header .modell { color: var(--muted); font-size: 13px; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  button.primär { background: var(--akzent); color: #fff; border-color: var(--akzent); }
+  button:disabled { opacity: .5; cursor: default; }
+  main { flex: 1; overflow-y: auto; padding: 16px; }
+  .verlauf { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  .nachricht { padding: 12px 16px; border-radius: 12px; max-width: 100%; overflow-wrap: anywhere; }
+  .nachricht.nutzer { background: var(--nutzer); align-self: flex-end; max-width: 85%; white-space: pre-wrap; }
+  .nachricht.ki { background: var(--card); border: 1px solid var(--line); align-self: flex-start; }
+  .nachricht.ki p { margin: 0 0 .7em; } .nachricht.ki p:last-child { margin-bottom: 0; }
+  .nachricht.ki ul, .nachricht.ki ol { margin: 0 0 .7em; padding-left: 1.4em; }
+  .nachricht.ki h1, .nachricht.ki h2, .nachricht.ki h3 { font-size: 1.05em; margin: .8em 0 .4em; }
+  .nachricht.ki code { background: var(--chip); padding: 1px 5px; border-radius: 4px; font-size: .92em; }
+  .nachricht.ki pre { background: var(--chip); padding: 10px; border-radius: 8px; overflow-x: auto; }
+  .nachricht.ki pre code { background: none; padding: 0; }
+  .nachricht.ki table { border-collapse: collapse; margin: .5em 0; font-size: .95em; }
+  .nachricht.ki td, .nachricht.ki th { border: 1px solid var(--line); padding: 4px 8px; }
+  .nachricht.ki a { color: var(--akzent); }
+  .werkzeuge { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .chip { font-size: 12px; background: var(--chip); border-radius: 999px; padding: 2px 10px; color: var(--muted); }
+  .chip.laeuft::before { content: "⏳ "; } .chip.fertig::before { content: "✓ "; } .chip.fehler::before { content: "⚠ "; }
+  .hinweis { color: var(--muted); font-size: 14px; font-style: italic; }
+  .fehler { background: var(--warn-hell); color: var(--warn); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+  .cursor::after { content: "▍"; animation: blink 1s steps(1) infinite; color: var(--akzent); }
+  @keyframes blink { 50% { opacity: 0; } }
+  .start { color: var(--muted); text-align: center; margin-top: 10vh; }
+  .start h2 { color: var(--text); font-weight: 600; }
+  .beispiele { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
+  .beispiele button { text-align: left; max-width: 360px; }
+  footer { border-top: 1px solid var(--line); background: var(--card); padding: 12px 16px; }
+  form { max-width: 820px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
+  textarea { flex: 1; resize: none; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); max-height: 200px; }
+  textarea:focus { outline: 2px solid var(--akzent); border-color: transparent; }
+  .klein { font-size: 12px; color: var(--muted); max-width: 820px; margin: 6px auto 0; text-align: center; }
+  @media (max-width: 640px) {
+    header { padding: 10px 12px; } header h1 { font-size: 15px; } header .modell { display: none; }
+    header button { padding: 5px 10px; font-size: 14px; white-space: nowrap; }
+    main { padding: 12px; } footer { padding: 10px 12px; }
+  }
+  dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--text); padding: 20px; max-width: 360px; width: calc(100% - 32px); }
+  dialog::backdrop { background: rgba(0,0,0,.4); }
+  dialog input { width: 100%; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); margin: 10px 0 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="titel">Energieberater-KI</h1>
+  <span class="modell" id="modell"></span>
+  <button id="neu" type="button">Neues Gespräch</button>
+</header>
+<main id="main">
+  <div class="verlauf" id="verlauf"></div>
+</main>
+<footer>
+  <form id="form">
+    <textarea id="eingabe" rows="1" placeholder="Ihre Frage… (Enter sendet, Umschalt+Enter für neue Zeile)" autofocus></textarea>
+    <button class="primär" id="senden" type="submit">Senden</button>
+  </form>
+  <div class="klein">Die KI kann sich irren. Berechnungen werden vom Energieberater geprüft.</div>
+</footer>
+
+<dialog id="login">
+  <form method="dialog">
+    <strong>Zugang</strong>
+    <p class="hinweis">Diese KI ist passwortgeschützt. Bitte das Passwort des Büros eingeben.</p>
+    <input id="passwort" type="password" autocomplete="current-password" placeholder="Passwort">
+    <button class="primär" type="submit">Anmelden</button>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const main = $("main"), verlaufEl = $("verlauf"), eingabe = $("eingabe"), form = $("form"), senden = $("senden");
+  let verlauf = [];          // Nachrichten im API-Format, kommen vom Server zurück
+  let anzeige = [];          // {rolle, text} nur für die Darstellung
+  let passwort = "", passwortNoetig = false, laeuft = false;
+
+  const speichern = () => { try { localStorage.setItem("ki.verlauf", JSON.stringify({verlauf, anzeige})); } catch (e) {} };
+  const laden = () => {
+    try {
+      const d = JSON.parse(localStorage.getItem("ki.verlauf") || "null");
+      if (d && Array.isArray(d.verlauf)) { verlauf = d.verlauf; anzeige = d.anzeige || []; }
+      passwort = sessionStorage.getItem("ki.passwort") || "";
+    } catch (e) {}
+  };
+
+  // ---- Darstellung ----------------------------------------------------
+  const esc = s => s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  function inline(s) {
+    s = esc(s);
+    s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+    s = s.replace(/\[([^\]]+)\]\((\/berichte\/[\w.-]+|https?:\/\/[^\s)]+)\)/g, (m, t, u) =>
+      `<a href="${u}" ${u.startsWith("/berichte/") ? 'data-bericht="1"' : 'target="_blank" rel="noopener"'}>${t}</a>`);
+    s = s.replace(/(^|[\s(])(\/berichte\/[\w-]+\.(?:pdf|html))/g, '$1<a href="$2" data-bericht="1">$2</a>');
+    return s;
+  }
+  function markdown(text) {
+    const zeilen = text.split("\n"); let out = "", i = 0;
+    while (i < zeilen.length) {
+      let z = zeilen[i];
+      if (/^```/.test(z)) { let code = []; i++; while (i < zeilen.length && !/^```/.test(zeilen[i])) code.push(zeilen[i++]); i++; out += `<pre><code>${esc(code.join("\n"))}</code></pre>`; continue; }
+      if (/^#{1,3}\s/.test(z)) { const n = z.match(/^#+/)[0].length; out += `<h${n}>${inline(z.replace(/^#+\s*/, ""))}</h${n}>`; i++; continue; }
+      if (/^\s*[-*]\s+/.test(z)) { out += "<ul>"; while (i < zeilen.length && /^\s*[-*]\s+/.test(zeilen[i])) out += `<li>${inline(zeilen[i++].replace(/^\s*[-*]\s+/, ""))}</li>`; out += "</ul>"; continue; }
+      if (/^\s*\d+[.)]\s+/.test(z)) { out += "<ol>"; while (i < zeilen.length && /^\s*\d+[.)]\s+/.test(zeilen[i])) out += `<li>${inline(zeilen[i++].replace(/^\s*\d+[.)]\s+/, ""))}</li>`; out += "</ol>"; continue; }
+      if (/^\s*\|/.test(z) && i + 1 < zeilen.length && /^\s*\|[\s:|-]+\|\s*$/.test(zeilen[i + 1])) {
+        const zelle = r => r.trim().replace(/^\||\|$/g, "").split("|").map(c => inline(c.trim()));
+        out += "<table><thead><tr>" + zelle(z).map(c => `<th>${c}</th>`).join("") + "</tr></thead><tbody>"; i += 2;
+        while (i < zeilen.length && /^\s*\|/.test(zeilen[i])) out += "<tr>" + zelle(zeilen[i++]).map(c => `<td>${c}</td>`).join("") + "</tr>";
+        out += "</tbody></table>"; continue;
+      }
+      if (z.trim() === "") { i++; continue; }
+      let abs = []; while (i < zeilen.length && zeilen[i].trim() !== "" && !/^(```|#{1,3}\s|\s*[-*]\s+|\s*\d+[.)]\s+|\s*\|)/.test(zeilen[i])) abs.push(zeilen[i++]);
+      if (abs.length) out += `<p>${inline(abs.join("\n")).replace(/\n/g, "<br>")}</p>`; else i++;
+    }
+    return out;
+  }
+
+  function zeichne() {
+    verlaufEl.innerHTML = "";
+    if (!anzeige.length) {
+      verlaufEl.innerHTML = `<div class="start"><h2>Womit kann ich helfen?</h2>
+        <p>Fragen zu Wärmepumpe im Bestand, Heizlast, hydraulischem Abgleich, Dämmung und Förderung.</p>
+        <div class="beispiele">
+          <button type="button">Welche Unterlagen brauche ich für eine Heizlastberechnung?</button>
+          <button type="button">Reicht ein Heizkörper mit 1.500 W Normleistung bei 50/43 °C für 800 W Raumheizlast?</button>
+          <button type="button">Rechne das Musterhaus durch und erzeuge den Bericht.</button>
+        </div></div>`;
+      verlaufEl.querySelectorAll(".beispiele button").forEach(b => b.onclick = () => { eingabe.value = b.textContent; eingabe.focus(); autosize(); });
+      return;
+    }
+    for (const n of anzeige) verlaufEl.appendChild(element(n));
+    main.scrollTop = main.scrollHeight;
+  }
+  function element(n) {
+    const d = document.createElement("div");
+    d.className = "nachricht " + (n.rolle === "nutzer" ? "nutzer" : "ki");
+    if (n.rolle === "nutzer") { d.textContent = n.text; return d; }
+    if (n.werkzeuge && n.werkzeuge.length) {
+      const w = document.createElement("div"); w.className = "werkzeuge";
+      for (const name of n.werkzeuge) { const c = document.createElement("span"); c.className = "chip fertig"; c.textContent = name.replace(/_/g, " "); w.appendChild(c); }
+      d.appendChild(w);
+    }
+    const inhalt = document.createElement("div"); inhalt.innerHTML = markdown(n.text || ""); d.appendChild(inhalt);
+    return d;
+  }
+
+  // ---- Berichte mit Passwort laden ------------------------------------
+  verlaufEl.addEventListener("click", async e => {
+    const a = e.target.closest("a[data-bericht]"); if (!a) return;
+    e.preventDefault();
+    const r = await fetch(a.getAttribute("href"), { headers: kopf() });
+    if (!r.ok) { alert("Bericht konnte nicht geladen werden."); return; }
+    const url = URL.createObjectURL(await r.blob()); window.open(url, "_blank");
+  });
+
+  // ---- Senden -----------------------------------------------------------
+  const kopf = () => passwort ? { "Authorization": "Bearer " + passwort } : {};
+  async function sendeFrage(frage) {
+    if (laeuft || !frage.trim()) return;
+    if (passwortNoetig && !passwort) { $("login").showModal(); return; }
+    laeuft = true; senden.disabled = true; eingabe.value = ""; autosize();
+    anzeige.push({ rolle: "nutzer", text: frage }); zeichne();
+
+    const box = document.createElement("div"); box.className = "nachricht ki";
+    const chips = document.createElement("div"); chips.className = "werkzeuge";
+    const inhalt = document.createElement("div"); inhalt.className = "cursor";
+    box.append(chips, inhalt); verlaufEl.appendChild(box); main.scrollTop = main.scrollHeight;
+    let text = "", hinweise = [], benutzt = [];
+
+    try {
+      const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", ...kopf() },
+        body: JSON.stringify({ verlauf, frage }) });
+      if (r.status === 401) { passwort = ""; sessionStorage.removeItem("ki.passwort"); anzeige.pop(); box.remove(); $("login").showModal(); return; }
+      if (!r.ok) { const f = await r.json().catch(() => ({})); throw new Error(f.fehler || ("HTTP " + r.status)); }
+      const leser = r.body.getReader(), dec = new TextDecoder(); let puffer = "";
+      while (true) {
+        const { value, done } = await leser.read(); if (done) break;
+        puffer += dec.decode(value, { stream: true });
+        let idx; while ((idx = puffer.indexOf("\n\n")) >= 0) {
+          const zeile = puffer.slice(0, idx); puffer = puffer.slice(idx + 2);
+          if (!zeile.startsWith("data: ")) continue;
+          const ev = JSON.parse(zeile.slice(6));
+          if (ev.typ === "text") { text += ev.text; inhalt.innerHTML = markdown(text); }
+          else if (ev.typ === "werkzeug") {
+            let c = chips.querySelector(`[data-name="${ev.name}"]:not(.fertig):not(.fehler)`);
+            if (!c) { c = document.createElement("span"); c.dataset.name = ev.name; chips.appendChild(c); benutzt.push(ev.name); }
+            c.className = "chip " + ev.status; c.textContent = ev.name.replace(/_/g, " ");
+          }
+          else if (ev.typ === "hinweis") { hinweise.push(ev.text); }
+          else if (ev.typ === "fehler") { throw new Error(ev.text); }
+          else if (ev.typ === "fertig") { verlauf = ev.verlauf; }
+          main.scrollTop = main.scrollHeight;
+        }
+      }
+      if (hinweise.length) text += "\n\n" + hinweise.map(h => "*" + h + "*").join("\n");
+      anzeige.push({ rolle: "ki", text, werkzeuge: benutzt });
+    } catch (err) {
+      const f = document.createElement("div"); f.className = "fehler"; f.textContent = err.message; box.appendChild(f);
+      // Nutzerfrage bleibt sichtbar; der Serververlauf wurde nicht erweitert, weil kein "fertig" kam
+      anzeige.push({ rolle: "ki", text: text + (text ? "\n\n" : "") + "⚠ " + err.message, werkzeuge: benutzt });
+    } finally {
+      inhalt.classList.remove("cursor"); laeuft = false; senden.disabled = false; speichern(); zeichne(); eingabe.focus();
+    }
+  }
+
+  form.addEventListener("submit", e => { e.preventDefault(); sendeFrage(eingabe.value); });
+  eingabe.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); } });
+  const autosize = () => { eingabe.style.height = "auto"; eingabe.style.height = Math.min(eingabe.scrollHeight, 200) + "px"; };
+  eingabe.addEventListener("input", autosize);
+  $("neu").onclick = () => { if (laeuft) return; verlauf = []; anzeige = []; speichern(); zeichne(); eingabe.focus(); };
+  $("login").addEventListener("close", () => {
+    passwort = $("passwort").value.trim(); $("passwort").value = "";
+    if (passwort) { sessionStorage.setItem("ki.passwort", passwort); if (eingabe.value.trim()) form.requestSubmit(); }
+  });
+
+  // ---- Start --------------------------------------------------------------
+  laden(); zeichne();
+  fetch("/api/info").then(r => r.json()).then(info => {
+    $("titel").textContent = info.name || "Energieberater-KI"; document.title = info.name || document.title;
+    $("modell").textContent = info.modell || "";
+    passwortNoetig = !!info.passwort_noetig;
+    if (passwortNoetig && !passwort) $("login").showModal();
+  }).catch(() => {});
+})();
+</script>
+</body>
+</html>

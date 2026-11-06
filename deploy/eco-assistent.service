@@ -1,0 +1,26 @@
+# systemd-Dienst ohne Docker. Installation:
+#   sudo useradd -r -s /usr/sbin/nologin ki
+#   sudo git clone <repo> /opt/eco-energieberater && cd /opt/eco-energieberater
+#   sudo python3 -m venv .venv && sudo .venv/bin/pip install -r requirements.txt
+#   sudo cp deploy/.env.beispiel /etc/eco-assistent.env && sudo chmod 600 /etc/eco-assistent.env  (Werte eintragen, KI_HOST=127.0.0.1)
+#   sudo mkdir -p berichte && sudo chown -R ki /opt/eco-energieberater/berichte
+#   sudo cp deploy/eco-assistent.service /etc/systemd/system/ && sudo systemctl enable --now eco-assistent
+[Unit]
+Description=eco Energieberater-KI (selbst gehosteter Assistent)
+After=network.target
+
+[Service]
+Type=simple
+User=ki
+WorkingDirectory=/opt/eco-energieberater
+EnvironmentFile=/etc/eco-assistent.env
+ExecStart=/opt/eco-energieberater/.venv/bin/python -m assistent
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/eco-energieberater/berichte
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
