@@ -6,3 +6,5 @@ berichte/*
 .env
 deploy/.env
 .venv/
+daten/*
+!daten/.gitkeep

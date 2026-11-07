@@ -42,6 +42,20 @@ services:
       - ollama
     restart: unless-stopped
 
+  # Interner Bilanz-Radar (Jahresabschlüsse aus dem Bundesanzeiger auswerten). Gleiches Image, anderer Befehl.
+  bilanzen:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    command: ["python3", "-m", "bilanzen"]
+    env_file: .env
+    ports:
+      - "127.0.0.1:8081:8081"   # nur lokal bzw. hinter nginx/Caddy mit HTTPS und Passwort
+    volumes:
+      - bilanzdaten:/app/daten
+    restart: unless-stopped
+
 volumes:
   ollama:
   berichte:
+  bilanzdaten:

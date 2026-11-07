@@ -184,3 +184,82 @@ HTML-Berichte.
 - Kundendaten gehören nicht in `wissen/`; die KI bekommt nur, was Nutzer eingeben.
 
 Tests: `python3 -m unittest tests.test_assistent` (laufen ohne Ollama und ohne API-Schlüssel).
+
+## Bilanz-Radar: Jahresabschlüsse aus dem Bundesanzeiger auswerten (intern)
+
+`bilanzen/` ist ein internes Werkzeug für die Frage „Wie läuft das Geschäft bei den Wettbewerbern, und lohnt
+sich der Einstieg in dieses Geschäftsfeld?“. Es sucht im [Bundesanzeiger](https://www.bundesanzeiger.de) nach
+Unternehmen zu Suchbegriffen (z. B. „Energieberatung“), lädt deren veröffentlichte Jahresabschlüsse, liest
+Bilanz und – soweit veröffentlicht – Gewinn- und Verlustrechnung aus, berechnet Kennzahlen je Unternehmen
+und verdichtet alles zu einem Branchenbild mit Urteil („attraktiv“, „bedingt attraktiv“, „wenig attraktiv“).
+Nur Python-Standardbibliothek, Ablage in SQLite.
+
+```bash
+python3 -m bilanzen                                  # Oberfläche auf http://127.0.0.1:8081
+python3 -m bilanzen suche "Energieberatung" --seiten 3   # dasselbe im Terminal (Captcha als Bilddatei)
+python3 -m bilanzen import abschluss.html --suchbegriff Energieberatung   # Datei aus dem Unternehmensregister
+python3 -m bilanzen bericht --suchbegriff Energieberatung                 # Branchenbild im Terminal
+python3 -m bilanzen export --suchbegriff Energieberatung > bilanzen.csv
+```
+
+```
+bilanzen/
+  bundesanzeiger.py  Suche, Trefferlisten, Seitenwechsel, Dokumentabruf, Captcha-Erkennung (ohne automatisches Lösen)
+  parser.py          Bilanz-/GuV-Posten aus dem HTML (Tabellen und Fließtext, EUR/TEUR, Fehlbeträge, Größenklasse, Mitarbeiter)
+  kennzahlen.py      EK-Quote, Renditen, Liquidität, Wachstum, Score 0–100 mit Ampel und Begründung je Unternehmen
+  bewertung.py       Branchenbild: Gewinnanteil, Margen, Wachstum, Krisenanteil, Einstiegshürden, Urteil
+  speicher.py        SQLite (Firmen, Abschlüsse mit Originaldokument, Kennzahlen, übersprungene Treffer)
+  auftraege.py       Hintergrundaufträge mit Pause zwischen Anfragen und Captcha-Stopp
+  server.py          HTTP-Server und JSON-API, static/index.html ist die Oberfläche
+```
+
+### So läuft eine Auswertung
+
+1. Suchbegriffe eingeben (eine Branche oder ein Namensbestandteil je Zeile) und Trefferseiten je Begriff wählen
+   (20 Treffer je Seite; „Energieberatung“ liefert im Bereich Rechnungslegung rund 760 Treffer).
+2. Der Auftrag läuft im Hintergrund und wartet zwischen zwei Anfragen (`BILANZ_PAUSE`, Standard 2 s).
+3. Vor dem ersten Jahresabschluss zeigt der Bundesanzeiger eine **Sicherheitsabfrage (Captcha)**. Das Bild erscheint
+   im Auftrag; Sie tippen die Zeichen ein, der Auftrag läuft weiter. Das Werkzeug löst Captchas absichtlich nicht
+   automatisch – das ist der Schutz des Bundesanzeigers vor Massenabrufen, und so bleibt die Nutzung im Rahmen
+   dessen, was dort einem menschlichen Nutzer offensteht.
+4. Jedes Dokument wird gespeichert (Original einsehbar), ausgelesen und bewertet. Die Firmenliste ist sortier- und
+   filterbar, ein Klick öffnet Posten, Kennzahlen, Einschätzung und das Originaldokument. CSV-Export für Excel.
+5. Das Branchenbild fasst alle Unternehmen eines Suchbegriffs zusammen; die Begründung nennt die Zahlen, auf denen
+   das Urteil beruht, und die Einschränkungen (Stichprobengröße, fehlende GuV, Datenstand).
+
+### Was die Zahlen aussagen – und was nicht
+
+- **Kleinst- und kleine Kapitalgesellschaften** (die Mehrheit der Energieberater-GmbHs/UGs) veröffentlichen nur
+  eine verkürzte Bilanz ohne GuV. Umsatz und Marge sind dann nicht ablesbar; das Werkzeug schätzt das Jahresergebnis
+  aus der Veränderung des Eigenkapitals (Untergrenze, da Ausschüttungen nicht sichtbar sind) und kennzeichnet das.
+- **Zeitverzug:** Abschlüsse werden bis zu zwölf Monate nach Geschäftsjahresende veröffentlicht.
+- **Datenstand im Bundesanzeiger:** Seit dem 1. August 2022 werden Jahresabschlüsse im
+  [Unternehmensregister](https://www.unternehmensregister.de) offengelegt; im Bundesanzeiger stehen die
+  Veröffentlichungen bis dahin (Geschäftsjahre bis etwa 2021, Nachzügler auch später). Neuere Abschlüsse öffnen Sie
+  im Unternehmensregister, speichern die Seite als HTML und laden sie über „Importieren“ hoch (oder
+  `python3 -m bilanzen import`). Sie werden genauso ausgewertet und der Branche zugeordnet.
+- **Wer fehlt:** Einzelunternehmer, Freiberufler und GbRs veröffentlichen nicht. Das Bild zeigt die
+  Kapitalgesellschaften der Branche.
+- Der Parser ist auf die üblichen Formen der Veröffentlichung ausgelegt (Tabellen mit Berichts- und Vorjahresspalte,
+  Fließtext, EUR oder TEUR). Bei ungewöhnlichen Dokumenten fehlen Posten; die Firma zeigt dann Hinweise und die
+  Datenlage „eingeschränkt“ oder „gering“. Nach Parser-Verbesserungen wertet „Neu auswerten“ alle gespeicherten
+  Dokumente erneut aus, ohne sie neu zu laden.
+
+### Betrieb
+
+Lokal ohne Passwort (`python3 -m bilanzen`). Auf einem Server `BILANZ_PASSWORT` setzen und wie beim Assistenten
+einen Reverse-Proxy mit HTTPS davorschalten; das Werkzeug ist nur für das Büro gedacht, nicht für Kunden.
+Docker: Dienst `bilanzen` in `deploy/docker-compose.yml` (Port 8081, Datenbank im Volume `bilanzdaten`).
+systemd: `deploy/eco-bilanzen.service`.
+
+| Variable | Standard | Bedeutung |
+| --- | --- | --- |
+| `BILANZ_HOST`, `BILANZ_PORT` | `127.0.0.1`, `8081` | Adresse des Servers |
+| `BILANZ_PASSWORT` | leer | Pflicht, sobald `BILANZ_HOST` nicht `127.0.0.1` ist |
+| `BILANZ_DATENBANK` | `daten/bilanzen.sqlite` | SQLite-Datei (enthält auch die Originaldokumente) |
+| `BILANZ_PAUSE` | `2` | Sekunden zwischen zwei Anfragen an den Bundesanzeiger (mindestens 1) |
+| `BILANZ_MAX_SEITEN` | `5` | Vorgabe für Trefferseiten je Suchbegriff in der Oberfläche (0 = alle) |
+| `BILANZ_VERTRAUE_PROXY` | `0` | `1` hinter nginx/Caddy (echte Client-IP im Protokoll) |
+
+Tests: `python3 -m unittest tests.test_bilanzen` (laufen ohne Netz; Trefferliste und Captcha-Seite liegen als
+Fixtures in `tests/fixtures/bilanzen/`).

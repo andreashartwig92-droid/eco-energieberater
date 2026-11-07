@@ -1,0 +1,24 @@
+# systemd-Dienst für den internen Bilanz-Radar (ohne Docker). Voraussetzung: Einrichtung wie in eco-assistent.service
+# (Benutzer ki, Checkout unter /opt/eco-energieberater, Umgebungsdatei /etc/eco-assistent.env mit den BILANZ_*-Werten).
+#   sudo mkdir -p /opt/eco-energieberater/daten && sudo chown ki /opt/eco-energieberater/daten
+#   sudo cp deploy/eco-bilanzen.service /etc/systemd/system/ && sudo systemctl enable --now eco-bilanzen
+# In /etc/eco-assistent.env: BILANZ_HOST=127.0.0.1 (nginx davor) oder BILANZ_PASSWORT setzen, BILANZ_DATENBANK=/opt/eco-energieberater/daten/bilanzen.sqlite
+[Unit]
+Description=eco Bilanz-Radar (interne Auswertung von Jahresabschlüssen)
+After=network.target
+
+[Service]
+Type=simple
+User=ki
+WorkingDirectory=/opt/eco-energieberater
+EnvironmentFile=/etc/eco-assistent.env
+ExecStart=/usr/bin/python3 -m bilanzen
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/eco-energieberater/daten
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
