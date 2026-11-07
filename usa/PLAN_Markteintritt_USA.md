@@ -1,6 +1,7 @@
 # Plan Markteintritt USA: Wohnungsbau-Nachweise in zwei Stufen
 
 Stand November 2026. Preise sind Richtwerte aus Anbieter-Websites und Branchenquellen in US-Dollar.
+Umsetzung Stufe 1 mit allen Links und Vorlagen: `usa/stufe1/README.md`.
 Stufe 1 läuft komplett aus Deutschland. Stufe 2 braucht Präsenz in den USA.
 
 ---

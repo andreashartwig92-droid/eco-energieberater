@@ -193,3 +193,11 @@ lässt sich direkt über nginx oder jeden statischen Host ausliefern. Firmenname
 Telefonnummer sind Platzhalter und vor Veröffentlichung zu ersetzen. Das Bestellformular versendet nichts,
 es erzeugt eine Zusammenfassung zum Kopieren; für echte Bestellungen Stripe Payment Links oder ein
 Formular-Backend anbinden.
+
+## US-Start Stufe 1: Startpaket
+
+`usa/stufe1/` enthält alles für den Start mit Manual J/S/D aus Deutschland: Anlaufplan Woche für Woche
+mit allen Links (`README.md`), Checkliste der Registrierungen und Einkäufe, Behörden-Register für
+Texas, Florida und North Carolina, Auftragsformular, Geschäftsbedingungen für die Pakete, Rechnungsvorlage,
+Berichtsdeckblatt, Akquise-Texte und Prüfliste vor jeder Auslieferung. Der Gesamtplan mit Stufe 2 steht
+in `usa/PLAN_Markteintritt_USA.md`.

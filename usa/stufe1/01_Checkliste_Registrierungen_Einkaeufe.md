@@ -1,4 +1,4 @@
-# Checkliste Stufe 1: Registrierungen und Einkäufe
+# 01 Checkliste Stufe 1: Registrierungen und Einkäufe
 
 Reihenfolge so abarbeiten. Alle Zahlungen per Kreditkarte mit deutscher Firmenadresse möglich.
 Preise in US-Dollar, Stand November 2026, vor dem Kauf auf der jeweiligen Seite prüfen.
@@ -16,7 +16,7 @@ Preise in US-Dollar, Stand November 2026, vor dem Kauf auf der jeweiligen Seite 
 | Nr. | Was | Wo | Was Sie dort tun | Kosten |
 | --- | --- | --- | --- | --- |
 | 4 | Wrightsoft Right-Suite Universal, Residential-Paket | https://www.wrightsoft.com/product/wrightsoft-residential/ | Jahresabo kaufen, Lizenzschlüssel per E-Mail, Windows-Installation | 900 / Jahr |
-| 5 | Wrightsoft-Schulung | Right-University On-Demand-Videos und Webinare über wrightsoft.com, training@wrightsoft.com, Tel. +1 800 225 8697. Alternative Drittanbieter: Kurs „HVAC Design, Manual J mit Wrightsoft RSU“ bei Zack Academy / HVAC Design Pros | Videos durcharbeiten, parallel Kursbeispiele aus dem ACCA-Kurs in der Software nachrechnen | Videos oft im Abo enthalten, Drittanbieterkurs 479 |
+| 5 | Wrightsoft-Schulung (empfohlen: Kombikurs) | Kombikurs Wrightsoft + Manual J/S/D online: https://www.zackacademy.com/class/construction-trade/wrightsoft---manual-j-s-d-combo-course (Anbieter HVAC Design Pros). Alternativ Right-University-Videos und Webinare des Herstellers über wrightsoft.com, training@wrightsoft.com | Kombikurs durcharbeiten, parallel die Beispiele aus dem ACCA-Kurs in der Software nachrechnen | Kombikurs 795, nur Manual J mit RSU 479, Herstellervideos teils im Abo |
 | 6 | REScheck-Web (präskriptiver Energienachweis IECC) | https://www.energycodes.gov/rescheck | Kostenloses Konto anlegen, Web-Version nutzen (Desktop-Version kann nur bis IECC 2015) | 0 |
 | 7 | EnergyGauge USA (Florida Form R405, Performance-Nachweis) | https://store.fsec.ucf.edu/do/category/EGRes, techsupport@energygauge.com, Tel. +1 321 323 7255 | Erst kaufen, wenn Florida-Kunden da sind. Preis im Store prüfen, Drittquellen nennen ab 199 | ca. 200 bis 700 / Jahr |
 | 8 | Rechner und Werkzeuge | Lokal | Windows-PC oder Windows-VM (Wrightsoft ist Windows-only), zweiter Monitor, PDF-Messwerkzeug (Bluebeam Revu oder kostenloses PDF-XChange) für Flächen aus Plänen | 0 bis 300 |
@@ -40,8 +40,8 @@ Preise in US-Dollar, Stand November 2026, vor dem Kauf auf der jeweiligen Seite 
 | 16 | Zahlungsabwicklung | https://stripe.com (deutsches Konto, Abrechnung in USD möglich), https://wise.com/business für USD-Konto und Auszahlung | Stripe Payment Links für Pack 10, 20, 30 anlegen, Wise-USD-Konto für ACH-Überweisungen von US-Kunden | Gebühren je Zahlung ca. 3 % |
 | 17 | Domain und Hosting | Registrar nach Wahl, .com-Domain | Landingpage aus `website/index.html` hochladen, Firmenname, E-Mail und Telefon ersetzen, Formular an Formspree oder Tally anbinden oder durch Payment Links ersetzen | 50 bis 200 / Jahr |
 | 18 | US-Telefonnummer | Google Voice (braucht US-Nummer zur Verifizierung) oder Anbieter wie Sonetel, Zadarma | Nummer mit Weiterleitung nach Deutschland, Bürozeiten US-Ostküste angeben | 5 bis 20 / Monat |
-| 19 | Vertrag und Bedingungen | `vertraege/Cooperation_Agreement_HVAC_Design_Services_USA_Muster.md` | Als Dienstleistungsvertrag und Terms of Service für Paketkunden anpassen, von US-Anwalt prüfen lassen | 500 bis 1.500 |
-| 20 | Intake-Formular | Tally, Typeform oder Webformular | Felder nach Exhibit A des Mustervertrags: Pläne, Fenster, Dämmung, Ausrichtung, Adresse, Bauaufsicht, Gerätewunsch | 0 bis 30 / Monat |
+| 19 | Vertrag und Bedingungen | `usa/stufe1/04_Terms_of_Service_Packs.md` (Entwurf liegt bereit) | Firmendaten eintragen, von US-Anwalt prüfen lassen | 500 bis 1.500 |
+| 20 | Intake-Formular | Tally (https://tally.so) oder Typeform | Felder 1:1 aus `usa/stufe1/03_Intake_Form.md` übernehmen, Datei-Upload aktivieren | 0 bis 30 / Monat |
 
 ## Ab Monat 3: Vertrieb
 
@@ -57,7 +57,7 @@ Preise in US-Dollar, Stand November 2026, vor dem Kauf auf der jeweiligen Seite 
 | Posten | USD |
 | --- | --- |
 | ACCA: Mitgliedschaft, Kurs, Handbücher | 1.250 bis 1.700 |
-| Wrightsoft plus Schulung | 900 bis 1.400 |
+| Wrightsoft plus Kombikurs | 1.700 |
 | EnergyGauge (bei Florida) | 200 bis 700 |
 | Versicherung | 1.500 bis 3.000 |
 | Website, Domain, Telefon, Formulare | 300 bis 600 |
@@ -65,4 +65,6 @@ Preise in US-Dollar, Stand November 2026, vor dem Kauf auf der jeweiligen Seite 
 | Werbung erste 3 Monate | 3.000 bis 6.000 |
 | **Summe** | **8.000 bis 16.000** |
 
-Ohne Werbung und mit Pilotkunden aus eigenem Netzwerk: 5.000 bis 10.000.
+Ohne Werbung und mit Pilotkunden aus eigenem Netzwerk: 5.500 bis 10.500.
+
+Hinweis: Everblue bietet keine Manual-J/S/D- oder Wrightsoft-Kurse an. Everblue ist erst für Stufe 2 (HERS Rater) vorgesehen.
