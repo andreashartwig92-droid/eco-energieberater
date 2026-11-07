@@ -19,6 +19,7 @@ Stand November 2026. Alle Preise in US-Dollar, vor dem Kauf auf der verlinkten S
 | `06_Berichtsdeckblatt.md` | Deckblatt und Annahmenliste für jeden Bericht (englisch) |
 | `07_Akquise_Vorlagen.md` | E-Mails und Nachrichten für Pilotkunden und Partner (englisch) |
 | `08_Qualitaetspruefung.md` | Prüfliste vor jeder Auslieferung |
+| `09_Alle_Bundesstaaten.md` | Alle 50 Staaten und D.C.: Energiecode, Manual-J/S/D-Grundlage, Besonderheiten, Sales Tax, Lizenz, Eignung, Änderungen 2026/2027 |
 
 Die Landingpage liegt unter `website/index.html`.
 
@@ -90,14 +91,14 @@ Siehe `02_Behoerden_Register.md`.
 ### Woche 4 bis 6: Übungsprojekte
 
 - [ ] 10 Übungsprojekte, verteilt auf die Klimazonen der Startstaaten (siehe `08_Qualitaetspruefung.md`)
+  - 3 Einfamilienhäuser Florida (Klimazone 1A und 2A), davon eines als Anlagentausch
   - 3 Einfamilienhäuser Texas (Klimazone 2A und 3A)
-  - 3 Einfamilienhäuser Florida (Klimazone 1A und 2A)
-  - 2 Einfamilienhäuser North Carolina (Klimazone 3A und 4A)
+  - 2 Einfamilienhäuser Virginia oder Georgia (Klimazone 3A und 4A)
   - 1 Haus mit zwei Anlagen (Ober- und Untergeschoss)
   - 1 Wohnungstyp in einem Mehrfamilienhaus mit drei Geschossen
 - [ ] Zeit je Paket messen. Ziel: unter 3 Stunden
 - [ ] Ergebnisse mit dem eigenen Modul `usa/` gegenrechnen, Abweichungen über 15 % klären
-- [ ] Register in `02_Behoerden_Register.md` für die sechs Startgemeinden ausfüllen
+- [ ] Register in `02_Behoerden_Register.md` für die Startgemeinden ausfüllen
 
 ### Woche 5 bis 6: Auftritt und Abläufe
 
@@ -115,7 +116,7 @@ Siehe `02_Behoerden_Register.md`.
 
 - [ ] Liste mit 50 HVAC-Contractors und 20 kleinen Bauträgern in den Startgemeinden anlegen
   (Quellen: Google Maps, Mitgliederlisten der Home Builders Associations, ACCA-Verzeichnis)
-- [ ] 15 Partner-Kontakte zu HERS-Rating-Firmen in Texas, Florida und North Carolina
+- [ ] 15 Partner-Kontakte zu HERS-Rating-Firmen in Florida, Texas, Virginia und Georgia
   (Quelle: https://www.hersindex.com/find-a-hers-rater/)
 - [ ] Anschreiben aus `07_Akquise_Vorlagen.md` versenden, 10 je Werktag
 - [ ] Ziel: 3 Pilotkunden mit Pack 10 zum halben Preis, Gegenleistung Referenz und Feedback
