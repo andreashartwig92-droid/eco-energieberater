@@ -184,3 +184,12 @@ HTML-Berichte.
 - Kundendaten gehören nicht in `wissen/`; die KI bekommt nur, was Nutzer eingeben.
 
 Tests: `python3 -m unittest tests.test_assistent` (laufen ohne Ollama und ohne API-Schlüssel).
+
+## Website: Manual J/S/D-Pakete für US-Kunden
+
+`website/index.html` ist eine statische Landingpage (englisch) für das US-Angebot: ACCA Manual J, S und D
+für 100 US-Dollar je Anlage, verkauft nur als Pakete zu 10, 20 und 30 Anlagen. Keine Abhängigkeiten,
+lässt sich direkt über nginx oder jeden statischen Host ausliefern. Firmenname, E-Mail-Adresse und
+Telefonnummer sind Platzhalter und vor Veröffentlichung zu ersetzen. Das Bestellformular versendet nichts,
+es erzeugt eine Zusammenfassung zum Kopieren; für echte Bestellungen Stripe Payment Links oder ein
+Formular-Backend anbinden.
