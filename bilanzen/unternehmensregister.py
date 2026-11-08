@@ -83,7 +83,8 @@ JS_TREFFER = r"""
   const zaehler = sichtbar.match(/(\d[\d\.]*)\s*(?:Treffer|Ergebnisse\b|Veröffentlichungen gefunden)/);
   const weiter = main.querySelector('[aria-label="Springe eine Seite weiter"], [aria-label*="Seite weiter"], a[rel="next"]');
   const weiterAktiv = !!(weiter && !weiter.disabled && !weiter.hasAttribute('disabled') && weiter.getAttribute('aria-disabled') !== 'true');
-  const aktiv = main.querySelector('[aria-label^="Aktuell ausgewählte Seite"], [aria-current="page"]');
+  // Erst die Seitennavigation des Registers; aria-current="page" trägt auch der Brotkrumenpfad, daher nur als Rückfall in nav-Elementen
+  const aktiv = main.querySelector('[aria-label^="Aktuell ausgewählte Seite"]') || main.querySelector('nav:not([aria-label*="Navigationspfad"]) [aria-current="page"]');
   const aktivNr = aktiv ? parseInt((aktiv.getAttribute('aria-label') || aktiv.textContent || '').replace(/\D+/g, ''), 10) : NaN;
   return {
     treffer: ergebnis,
@@ -281,7 +282,9 @@ class BrowserClient:
         if not seite.naechste_url:
             return None
         self._warte()
+        zurueck = False
         if self._seite.url != seite.url:
+            zurueck = True
             # nach dem Öffnen von Veröffentlichungen zurück zur Trefferliste
             self._seite.goto(seite.url, wait_until="domcontentloaded")
             self._nach_aktion("trefferliste_zurueck")
@@ -296,8 +299,12 @@ class BrowserClient:
             if not self._lies_treffer().get("weiter"):
                 return None
             raise UnternehmensregisterFehler("Knopf „Seite weiter“ nicht gefunden, obwohl weitere Seiten angezeigt werden.")
-        while self._aktuelle_seite() < seite.nummer:
-            self._blaettern(weiter, self._aktuelle_seite() + 1)
+        if zurueck:  # nur nach einer neuen Suche bis zur bisherigen Seite vorblättern
+            for _ in range(20 * 1000):
+                aktuell = self._aktuelle_seite()
+                if aktuell >= seite.nummer:
+                    break
+                self._blaettern(weiter, aktuell + 1)
         self._blaettern(weiter, seite.nummer + 1)
         return self._trefferseite(erwartet=seite.nummer + 1)
 
@@ -306,7 +313,7 @@ class BrowserClient:
         weiter.click()
         try:
             self._seite.wait_for_function(
-                """z => { const e = document.querySelector('[aria-label^="Aktuell ausgewählte Seite"], [aria-current="page"]');
+                """z => { const e = document.querySelector('[aria-label^="Aktuell ausgewählte Seite"]');
                           return !e || parseInt((e.getAttribute('aria-label') || e.textContent || '').replace(/\\D+/g, ''), 10) >= z; }""",
                 arg=ziel, timeout=min(self.zeitlimit_ms, 30000))
         except Exception:  # noqa: BLE001 – wird beim Lesen der Seite erkannt
