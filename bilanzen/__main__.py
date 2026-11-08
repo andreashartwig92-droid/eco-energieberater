@@ -4,6 +4,8 @@
   python -m bilanzen diagnose "Energieberatung" [--sichtbar]   Unternehmensregister Schritt für Schritt prüfen
   python -m bilanzen import datei.html [...] [--suchbegriff Energieberatung]
   python -m bilanzen bericht [--suchbegriff Energieberatung]
+  python -m bilanzen vorreiter [--suchbegriff Energieberatung] [--n 20]
+  python -m bilanzen import-csv daten.csv [--suchbegriff Energieberatung] [--teur]
   python -m bilanzen export [--suchbegriff ...] > bilanzen.csv
   python -m bilanzen neu-berechnen
 """
@@ -36,6 +38,13 @@ def main(argv=None):
     i.add_argument("--name", default="", help="Firmenname (sonst aus dem Dokument)")
     b = sub.add_parser("bericht", help="Branchenbild im Terminal ausgeben")
     b.add_argument("--suchbegriff", default=None)
+    vr = sub.add_parser("vorreiter", help="Rangliste der Vorreiter einer Branche")
+    vr.add_argument("--suchbegriff", default=None)
+    vr.add_argument("--n", type=int, default=20)
+    ic = sub.add_parser("import-csv", help="Kennzahlen aus CSV (lizenzierte Daten, eigene Listen) übernehmen")
+    ic.add_argument("dateien", nargs="+")
+    ic.add_argument("--suchbegriff", default="")
+    ic.add_argument("--teur", action="store_true", help="Beträge in der Datei stehen in TEUR")
     e = sub.add_parser("export", help="CSV auf die Standardausgabe")
     e.add_argument("--suchbegriff", default=None)
     sub.add_parser("neu-berechnen", help="alle gespeicherten Dokumente neu auswerten")
@@ -68,6 +77,19 @@ def main(argv=None):
         return importieren(speicher, args.dateien, args.suchbegriff, args.name)
     if args.befehl == "bericht":
         return bericht(speicher, args.suchbegriff)
+    if args.befehl == "vorreiter":
+        return vorreiter_bericht(speicher, args.suchbegriff, args.n)
+    if args.befehl == "import-csv":
+        from . import csv_import
+        for datei in args.dateien:
+            p = Path(datei)
+            try:
+                r = csv_import.importieren(speicher, p.read_bytes().decode("utf-8-sig", errors="replace"), args.suchbegriff, p.name, args.teur)
+            except csv_import.CsvFehler as e:
+                print(f"{p.name}: {e}", file=sys.stderr)
+                return 1
+            print(f"{p.name}: {r['abschluesse']} Abschlüsse von {r['firmen']} Firmen übernommen")
+        return 0
     if args.befehl == "export":
         return export(speicher, args.suchbegriff)
     if args.befehl == "neu-berechnen":
@@ -145,6 +167,23 @@ def bericht(speicher, suchbegriff):
         k = f["kennzahlen"]
         print(f"{f['name'][:50]:50} {(f['gj_bis'] or '')[:4]:>5} {geld(k.get('bilanzsumme')):>14} {prozent(k.get('eigenkapitalquote'), 0):>9} "
               f"{prozent(k.get('umsatzrendite')):>10} {str(k.get('score') or '–'):>6}  {k.get('ampel')}")
+    return 0
+
+
+def vorreiter_bericht(speicher, suchbegriff, n):
+    from . import vorreiter
+    from .kennzahlen import geld, prozent
+
+    r = vorreiter.rangliste(speicher.firmen(suchbegriff), n=n)
+    print(f"Vorreiter: {suchbegriff or 'alle gespeicherten Unternehmen'} – {r['bewertet']} von {r['anzahl']} Unternehmen bewertet\n")
+    print(f"{'Rang':>4} {'Firma':48} {'GJ':>5} {'Score':>6} {'Wachstum':>9} {'Ertrag':>8} {'Größe':>14}  Gründe")
+    for e in r["rangliste"]:
+        w = e["werte"]
+        print(f"{str(e['rang'] or '–'):>4} {e['name'][:48]:48} {(e['gj_bis'] or '')[:4]:>5} {str(e['vorreiter_score'] if e['vorreiter_score'] is not None else '–'):>6} "
+              f"{prozent(w['wachstum'], 0):>9} {prozent(w['ertrag']):>8} {geld(w['groesse']):>14}  {' '.join(e['gruende'][:2])}")
+    print()
+    for h in r["hinweise"]:
+        print(f"  ! {h}")
     return 0
 
 

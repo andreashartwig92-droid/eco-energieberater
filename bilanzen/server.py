@@ -15,6 +15,8 @@ Routen (JSON, Anmeldung über Header `Authorization: Bearer <BILANZ_PASSWORT>`, 
   DELETE /api/firmen/<id>
   GET  /api/abschluesse/<id>/roh      Originaldokument (HTML, in Sandbox-iframe anzeigbar)
   GET  /api/branche?suchbegriff=      Branchenbild und Urteil
+  GET  /api/vorreiter?suchbegriff=&n= Rangliste der Vorreiter (Wachstum, Ertrag, Größe, Substanz, Mehrjahrestrend)
+  POST /api/import-csv                {dateiname, text, suchbegriff, teur?} → Kennzahlen aus CSV (z. B. lizenzierte Daten)
   POST /api/import                    {dateiname, html, name?, ort?, suchbegriff?} → Abschluss aus Datei (z. B. Unternehmensregister)
   POST /api/neu-berechnen             alle gespeicherten Dokumente mit dem aktuellen Parser neu auswerten
   GET  /api/export.csv?suchbegriff=   Kennzahlen als CSV (Semikolon, deutsche Zahlen)
@@ -32,7 +34,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import bewertung
+from . import bewertung, csv_import, vorreiter
 from .auftraege import Verwalter
 from .speicher import Speicher
 
@@ -161,6 +163,13 @@ class Handler(BaseHTTPRequestHandler):
                                 {"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:", "X-Frame-Options": "SAMEORIGIN"})
         if pfad == "/api/branche":
             return self._json(HTTPStatus.OK, self.app.branche(q.get("suchbegriff") or None))
+        if pfad == "/api/vorreiter":
+            try:
+                n = int(q.get("n") or 20)
+            except ValueError:
+                n = 20
+            firmen = self.app.speicher.firmen(q.get("suchbegriff") or None)
+            return self._json(HTTPStatus.OK, vorreiter.rangliste(firmen, n=n))
         if pfad == "/api/uebersprungen":
             return self._json(HTTPStatus.OK, {"uebersprungen": self.app.speicher.uebersprungene(q.get("suchbegriff") or None)})
         if pfad == "/api/export.csv":
@@ -235,6 +244,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(HTTPStatus.OK, {"ok": True})
             if pfad == "/api/import":
                 return self._import(daten)
+            if pfad == "/api/import-csv":
+                text = daten.get("text")
+                if not isinstance(text, str) or not text.strip():
+                    raise ValueError("text fehlt (Inhalt der CSV-Datei)")
+                try:
+                    ergebnis = csv_import.importieren(self.app.speicher, text, suchbegriff=(daten.get("suchbegriff") or "").strip(),
+                                                      dateiname=daten.get("dateiname") or "", einheit_teur=bool(daten.get("teur")))
+                except csv_import.CsvFehler as e:
+                    raise ValueError(str(e)) from e
+                return self._json(HTTPStatus.CREATED, ergebnis)
             if pfad == "/api/neu-berechnen":
                 n = self.app.speicher.neu_berechnen()
                 return self._json(HTTPStatus.OK, {"neu_berechnet": n})

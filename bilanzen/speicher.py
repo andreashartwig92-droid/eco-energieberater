@@ -174,6 +174,13 @@ class Speicher:
                    FROM firmen f
                    LEFT JOIN abschluesse a ON a.id = (SELECT id FROM abschluesse y WHERE y.firma_id = f.id ORDER BY gj_bis DESC, id DESC LIMIT 1)
                    ORDER BY f.name""").fetchall()
+            verlaeufe = {}
+            for v in self._db.execute("SELECT firma_id, gj_bis, kennzahlen_json FROM abschluesse ORDER BY gj_bis"):
+                k = json.loads(v["kennzahlen_json"] or "{}")
+                verlaeufe.setdefault(v["firma_id"], []).append({
+                    "gj_bis": v["gj_bis"], "bilanzsumme": k.get("bilanzsumme"), "eigenkapital": k.get("eigenkapital"), "umsatz": k.get("umsatz"),
+                    "jahresueberschuss": k.get("jahresueberschuss"), "mitarbeiter": k.get("mitarbeiter"), "score": k.get("score"),
+                })
         ergebnis = []
         for z in zeilen:
             begriffe = json.loads(z["suchbegriffe"] or "[]")
@@ -185,7 +192,7 @@ class Speicher:
                 "id": z["id"], "name": z["name"], "ort": z["ort"], "rechtsform": z["rechtsform"] or a.get("rechtsform", ""),
                 "suchbegriffe": begriffe, "abschluss_id": z["abschluss_id"], "gj_bis": z["gj_bis"], "quelle": z["quelle"],
                 "anzahl_abschluesse": z["anzahl_abschluesse"], "groessenklasse": a.get("groessenklasse", ""),
-                "kennzahlen": k,
+                "kennzahlen": k, "verlauf": verlaeufe.get(z["id"], []),
             })
         return ergebnis
 

@@ -199,6 +199,8 @@ python3 -m bilanzen                                  # Oberfläche auf http://12
 python3 -m bilanzen suche "Energieberatung" --seiten 3   # dasselbe im Terminal (Captcha als Bilddatei)
 python3 -m bilanzen import abschluss.html --suchbegriff Energieberatung   # Datei aus dem Unternehmensregister
 python3 -m bilanzen bericht --suchbegriff Energieberatung                 # Branchenbild im Terminal
+python3 -m bilanzen vorreiter --suchbegriff Energieberatung --n 20        # Rangliste der Vorreiter
+python3 -m bilanzen import-csv daten.csv --suchbegriff Energieberatung    # Kennzahlen aus CSV (lizenzierte Daten)
 python3 -m bilanzen export --suchbegriff Energieberatung > bilanzen.csv
 ```
 
@@ -208,6 +210,8 @@ bilanzen/
   parser.py          Bilanz-/GuV-Posten aus dem HTML (Tabellen und Fließtext, EUR/TEUR, Fehlbeträge, Größenklasse, Mitarbeiter)
   kennzahlen.py      EK-Quote, Renditen, Liquidität, Wachstum, Score 0–100 mit Ampel und Begründung je Unternehmen
   bewertung.py       Branchenbild: Gewinnanteil, Margen, Wachstum, Krisenanteil, Einstiegshürden, Urteil
+  vorreiter.py       Rangliste nach Wachstum, Ertrag, Größe, Substanz, Mehrjahrestrend (Perzentile in der Vergleichsgruppe)
+  csv_import.py      Kennzahlen aus CSV-Dateien (Datenanbieter, eigene Listen) in dieselbe Datenbank
   speicher.py        SQLite (Firmen, Abschlüsse mit Originaldokument, Kennzahlen, übersprungene Treffer)
   auftraege.py       Hintergrundaufträge mit Pause zwischen Anfragen und Captcha-Stopp
   server.py          HTTP-Server und JSON-API, static/index.html ist die Oberfläche
@@ -226,6 +230,32 @@ bilanzen/
    filterbar, ein Klick öffnet Posten, Kennzahlen, Einschätzung und das Originaldokument. CSV-Export für Excel.
 5. Das Branchenbild fasst alle Unternehmen eines Suchbegriffs zusammen; die Begründung nennt die Zahlen, auf denen
    das Urteil beruht, und die Einschränkungen (Stichprobengröße, fehlende GuV, Datenstand).
+
+### Vorreiter finden
+
+Die Karte „Vorreiter“ (und `python3 -m bilanzen vorreiter --suchbegriff Energieberatung`) ordnet die Unternehmen einer
+Branche nach fünf Dimensionen, jede als Perzentilrang innerhalb der Vergleichsgruppe: Wachstum (Umsatz, sonst
+Bilanzsumme), Ertragskraft (Umsatzrendite, sonst Eigenkapitalveränderung), Größe, Substanz (Eigenkapitalquote) und
+Mehrjahrestrend (jährliche Wachstumsrate über alle gespeicherten Jahre einer Firma). Der Vorreiter-Score ist das
+gewichtete Mittel (35/25/20/10/10 %). Daneben zeigt die Karte die Spitzenreiter je Dimension. Je mehr Unternehmen
+und Jahrgänge geladen sind, desto belastbarer wird die Liste; der Mehrjahrestrend braucht mindestens zwei Abschlüsse
+je Firma (Bundesanzeiger bis 2021 plus Unternehmensregister ab 2022 ergibt die Zeitreihe).
+
+### Datenbank aufbauen
+
+Drei Wege füllen dieselbe SQLite-Datenbank, Branchenbild und Vorreiter-Ranking rechnen über alles zusammen:
+
+1. **Abruf aus den Portalen** (Bundesanzeiger, Unternehmensregister): Aufträge laufen im Hintergrund in einer Sitzung;
+   eine Sicherheitsabfrage erscheint nur, wenn das Portal sie verlangt. Die Oberfläche meldet sie mit Ton,
+   Browser-Benachrichtigung und im Fenstertitel, sodass Sie nebenbei arbeiten können. **Das Werkzeug löst Captchas
+   absichtlich nicht automatisch**: Die Abfrage ist die Schutzmaßnahme der Portale gegen Massenabrufe, beide sperren
+   bei Umgehung IP-Adressen, und ein Umgehen verstieße gegen den erkennbaren Willen der Betreiber.
+2. **CSV-Import** (`python3 -m bilanzen import-csv daten.csv --suchbegriff Energieberatung` oder in der Oberfläche): Für
+   einen vollständigen Bestand ohne Eingaben bieten Datenanbieter lizenzierte Bilanzdaten als Export an. Spalten werden
+   am Namen erkannt (Firma, Ort, Geschäftsjahr/Stichtag, Bilanzsumme, Eigenkapital, Umsatz, Jahresüberschuss,
+   Mitarbeiter, Verbindlichkeiten, …), Zahlen im deutschen Format, Beträge in EUR oder TEUR, Vorjahreswerte aus Spalten
+   mit „Vorjahr“ oder aus der Zeile desselben Unternehmens zum Vorjahr.
+3. **Einzelimport** von Abschluss-Dokumenten (HTML) aus dem Unternehmensregister.
 
 ### Was die Zahlen aussagen – und was nicht
 

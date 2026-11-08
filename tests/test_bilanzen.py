@@ -540,3 +540,93 @@ class UnternehmensregisterVerwaltung(unittest.TestCase):
         except ImportError:
             self.assertFalse(ok)
             self.assertIn("playwright", grund)
+
+
+# --- Vorreiter und CSV-Import ----------------------------------------------------------------------
+
+from bilanzen import csv_import, vorreiter
+
+
+class CsvImport(unittest.TestCase):
+    def test_lesen_mit_teur_und_vorjahr(self):
+        daten = csv_import.lese(lies("kennzahlen.csv"))
+        self.assertEqual(len(daten), 4)
+        alpha23 = next(d for d in daten if d["name"].startswith("Alpha") and d["gj_bis"] == "2023-12-31")
+        self.assertEqual(alpha23["posten"]["bilanzsumme"], [1480000.0, 1250500.0])  # Vorjahr aus der Zeile 2022
+        self.assertEqual(alpha23["posten"]["umsatz"], [4100000.0, 3400000.0])
+        self.assertEqual(alpha23["mitarbeiter"], 33)
+        self.assertEqual(alpha23["rechtsform"], "GmbH")
+        beta = next(d for d in daten if d["name"].startswith("Beta"))
+        self.assertEqual(beta["gj_bis"], "2023-12-31")
+        self.assertNotIn("umsatz", beta["posten"])
+        gamma = next(d for d in daten if d["name"].startswith("Gamma"))
+        self.assertEqual(gamma["posten"]["jahresueberschuss"], [-120000.0, None])
+        self.assertEqual(gamma["rechtsform"], "GmbH & Co. KG")
+
+    def test_fehler(self):
+        with self.assertRaises(csv_import.CsvFehler):
+            csv_import.lese("a;b\n1;2\n")
+        with self.assertRaises(csv_import.CsvFehler):
+            csv_import.lese("Firma;Umsatz\nX GmbH;100\n")  # kein Jahr
+
+    def test_import_in_speicher(self):
+        s = Speicher(":memory:")
+        r = csv_import.importieren(s, lies("kennzahlen.csv"), suchbegriff="Energieberatung", dateiname="kennzahlen.csv")
+        self.assertEqual((r["abschluesse"], r["firmen"]), (4, 3))
+        firmen = s.firmen("Energieberatung")
+        self.assertEqual(len(firmen), 3)
+        alpha = next(f for f in firmen if f["name"].startswith("Alpha"))
+        self.assertEqual(alpha["gj_bis"], "2023-12-31")
+        self.assertEqual(alpha["quelle"], "csv")
+        self.assertEqual(alpha["anzahl_abschluesse"], 2)
+        self.assertEqual([v["gj_bis"] for v in alpha["verlauf"]], ["2022-12-31", "2023-12-31"])
+        self.assertAlmostEqual(alpha["kennzahlen"]["wachstum_umsatz"], 4100000 / 3400000 - 1)
+        self.assertAlmostEqual(alpha["kennzahlen"]["umsatzrendite"], 265000 / 4100000)
+        gamma = next(f for f in firmen if f["name"].startswith("Gamma"))
+        self.assertEqual(gamma["kennzahlen"]["ampel"], "rot")
+        s.schliessen()
+
+
+class Vorreiter(unittest.TestCase):
+    def test_rangliste(self):
+        s = Speicher(":memory:")
+        csv_import.importieren(s, lies("kennzahlen.csv"), suchbegriff="Energieberatung")
+        s.dokument_speichern("Muster Energieberatung GmbH", "Musterstadt", lies("jahresabschluss_gmbh.html"), titel="x", suchbegriff="Energieberatung")
+        r = vorreiter.rangliste(s.firmen("Energieberatung"), n=10)
+        self.assertEqual(r["anzahl"], 4)
+        self.assertEqual(r["rangliste"][0]["name"], "Alpha Energieberatung GmbH")  # wächst, verdient, hat Mehrjahrestrend
+        self.assertEqual(r["rangliste"][0]["rang"], 1)
+        self.assertIsNotNone(r["rangliste"][0]["perzentile"]["trend"])
+        self.assertAlmostEqual(r["rangliste"][0]["werte"]["trend"], 4100000 / 3400000 - 1)
+        namen = [e["name"] for e in r["rangliste"]]
+        self.assertLess(namen.index("Alpha Energieberatung GmbH"), namen.index("Gamma Energie-Consulting GmbH & Co. KG"))
+        self.assertEqual(r["kategorien"]["groesse"][0]["name"], "Gamma Energie-Consulting GmbH & Co. KG")
+        self.assertTrue(all(0 <= p <= 100 for e in r["rangliste"] for p in e["perzentile"].values() if p is not None))
+        self.assertTrue(r["rangliste"][0]["gruende"])
+        s.schliessen()
+
+    def test_perzentile_und_leer(self):
+        self.assertEqual(vorreiter._perzentile({"a": 1, "b": 2, "c": 3}), {"a": 0.0, "b": 50.0, "c": 100.0})
+        self.assertEqual(vorreiter._perzentile({"a": 1, "b": 1}), {"a": 50.0, "b": 50.0})
+        self.assertEqual(vorreiter._perzentile({"a": None}), {})
+        r = vorreiter.rangliste([])
+        self.assertEqual((r["anzahl"], r["rangliste"]), (0, []))
+
+
+class ServerVorreiterCsv(ServerTest):
+    def test_ablauf(self):
+        pass  # geerbter Ablauf läuft in ServerTest
+
+    def test_oberflaeche_und_gesund(self):
+        pass
+
+    def test_csv_und_vorreiter(self):
+        status, r = self.anfrage("POST", "/api/import-csv", {"dateiname": "k.csv", "text": lies("kennzahlen.csv"), "suchbegriff": "CSV-Test"})
+        self.assertEqual(status, 201)
+        self.assertEqual(r["firmen"], 3)
+        status, v = self.anfrage("GET", "/api/vorreiter?suchbegriff=CSV-Test&n=2")
+        self.assertEqual(status, 200)
+        self.assertEqual(len(v["rangliste"]), 2)
+        self.assertEqual(v["rangliste"][0]["rang"], 1)
+        status, fehler = self.anfrage("POST", "/api/import-csv", {"dateiname": "x.csv", "text": "a;b\n1;2\n"})
+        self.assertEqual(status, 400)
