@@ -28,7 +28,8 @@ def main(argv=None):
     s.add_argument("--seiten", type=int, default=None, help="Trefferseiten je Begriff (0 = alle)")
     s.add_argument("--nur-liste", action="store_true", help="nur Treffer anzeigen, nichts laden")
     s.add_argument("--auch-vorhandene", action="store_true", help="bereits gespeicherte Abschlüsse erneut laden")
-    s.add_argument("--quelle", choices=("bundesanzeiger", "unternehmensregister", "openregister"), default="bundesanzeiger")
+    s.add_argument("--quelle", choices=("auto", "openregister", "unternehmensregister", "bundesanzeiger"), default="auto",
+                   help="auto = OpenRegister-Schnittstelle, wenn OPENREGISTER_API_KEY gesetzt ist, sonst Unternehmensregister")
     s.add_argument("--suchfeld", choices=("zweck", "name", "branche"), default="zweck", help="OpenRegister: Unternehmensgegenstand, Firmenname oder WZ-Code")
     s.add_argument("--ort", default="", help="OpenRegister: auf Orte eingrenzen (Komma-getrennt)")
     s.add_argument("--auch-inaktive", action="store_true", help="OpenRegister: auch gelöschte/inaktive Firmen")
@@ -110,6 +111,10 @@ def suche(konfig, speicher, begriffe, seiten, nur_liste, nur_neue, quelle="bunde
     from .auftraege import Verwalter
 
     verwalter = Verwalter(speicher, pause=konfig.pause, chromium_pfad=konfig.chromium or None)
+    if quelle == "auto":
+        from .openregister import verfuegbar as or_verfuegbar
+        quelle = "openregister" if or_verfuegbar()[0] else "unternehmensregister"
+        print(f"Datenquelle: {quelle}")
     try:
         a = verwalter.anlegen(begriffe, max_seiten=seiten, nur_neue=nur_neue, nur_liste=nur_liste, quelle=quelle, optionen=optionen)
     except ValueError as e:

@@ -185,54 +185,66 @@ HTML-Berichte.
 
 Tests: `python3 -m unittest tests.test_assistent` (laufen ohne Ollama und ohne API-Schlüssel).
 
-## Bilanz-Radar: Jahresabschlüsse aus dem Bundesanzeiger auswerten (intern)
+## Bilanz-Radar: Branche eingeben, Zahlen und Urteil bekommen (intern)
 
-`bilanzen/` ist ein internes Werkzeug für die Frage „Wie läuft das Geschäft bei den Wettbewerbern, und lohnt
-sich der Einstieg in dieses Geschäftsfeld?“. Es sucht im [Bundesanzeiger](https://www.bundesanzeiger.de) nach
-Unternehmen zu Suchbegriffen (z. B. „Energieberatung“), lädt deren veröffentlichte Jahresabschlüsse, liest
-Bilanz und – soweit veröffentlicht – Gewinn- und Verlustrechnung aus, berechnet Kennzahlen je Unternehmen
-und verdichtet alles zu einem Branchenbild mit Urteil („attraktiv“, „bedingt attraktiv“, „wenig attraktiv“).
-Nur Python-Standardbibliothek, Ablage in SQLite.
+`bilanzen/` ist ein internes Werkzeug mit **einer Seite** für die Frage „Wie läuft das Geschäft bei den Anbietern einer
+Branche, wer sind die Vorreiter, und lohnt sich der Einstieg?“. Oben eine Branche eingeben (z. B. „Energieberatung“),
+„Daten holen“ – darunter erscheinen Branchenurteil, Vorreiter-Rangliste und die Liste aller Unternehmen mit Bilanz,
+Umsatz, Ergebnis, Eigenkapitalquote, Wachstum und Score. Ein Klick auf eine Firma zeigt alle Jahre, Posten,
+Kennzahlen und das Originaldokument. Nur Python-Standardbibliothek, Ablage in SQLite.
 
 ```bash
-export OPENREGISTER_API_KEY=...                      # empfohlene Quelle, Schlüssel von openregister.de/keys
-python3 -m bilanzen                                  # Oberfläche auf http://127.0.0.1:8081
-python3 -m bilanzen suche "Energieberatung" --quelle openregister --seiten 2   # 100 Firmen mit allen Jahren, ohne Captcha
-python3 -m bilanzen suche "Energieberatung" --seiten 3   # dasselbe im Terminal (Captcha als Bilddatei)
-python3 -m bilanzen import abschluss.html --suchbegriff Energieberatung   # Datei aus dem Unternehmensregister
-python3 -m bilanzen bericht --suchbegriff Energieberatung                 # Branchenbild im Terminal
-python3 -m bilanzen vorreiter --suchbegriff Energieberatung --n 20        # Rangliste der Vorreiter
-python3 -m bilanzen import-csv daten.csv --suchbegriff Energieberatung    # Kennzahlen aus CSV (lizenzierte Daten)
+export OPENREGISTER_API_KEY=...        # Schlüssel von openregister.de/keys (kostenlos, 500 Punkte im Monat)
+python3 -m bilanzen                    # Oberfläche auf http://127.0.0.1:8081
+python3 -m bilanzen suche "Energieberatung" --seiten 2      # dasselbe im Terminal (100 Firmen, alle Jahre)
+python3 -m bilanzen bericht --suchbegriff Energieberatung   # Branchenurteil im Terminal
+python3 -m bilanzen vorreiter --suchbegriff Energieberatung # Rangliste im Terminal
 python3 -m bilanzen export --suchbegriff Energieberatung > bilanzen.csv
 ```
 
+### Woher die Daten kommen
+
+Seit dem 1. August 2022 werden Jahresabschlüsse im **Unternehmensregister** offengelegt (Geschäftsjahre ab 2022); die
+Oberfläche wählt die Quelle automatisch:
+
+1. **OpenRegister-Schnittstelle (Standard, sobald ein Schlüssel gesetzt ist):** [OpenRegister](https://openregister.de)
+   ist ein Datenanbieter, der die offengelegten Jahresabschlüsse bereits ausgelesen hat und per dokumentierter API
+   liefert ([docs.openregister.de](https://docs.openregister.de)): Firmensuche nach Unternehmensgegenstand (das trifft
+   die Branche besser als der Name), Firmenname, Ort oder WZ-Branchencode; je Firma Bilanz, GuV und Kennzahlen **aller
+   verfügbaren Geschäftsjahre** in einem Abruf, dazu das Originaldokument. Kein Captcha, kein Browser. Kostenloser
+   Schlüssel unter [openregister.de/keys](https://openregister.de/keys) mit 500 Punkten im Monat (eine Suchseite mit bis
+   zu 50 Firmen 10 Punkte, die Finanzdaten einer Firma 10 Punkte, also rund 45 Firmen frei je Monat); darüber 1 Cent je
+   Punkt, 1.000 Firmen entsprechen etwa 100 €. Bereits geladene Firmen werden nicht erneut abgerufen. Fehlt bei kleinen
+   Gesellschaften die GuV, liefert OpenRegister eine modellierte Umsatzschätzung; sie wird als Hinweis angezeigt, fließt
+   aber nicht in die Kennzahlen ein.
+2. **Unternehmensregister direkt (ohne Schlüssel):** ein gesteuerter Chromium-Browser (Playwright) bedient das Register
+   wie ein Mensch – Formular, Trefferliste, Veröffentlichung. Vor dem ersten Dokument fragt das Register eine
+   **Sicherheitsabfrage (Captcha)** ab; sie erscheint in der Oberfläche und wird von Ihnen eingetippt, danach läuft der
+   Abruf weiter (Ton, Browser-Benachrichtigung und Fenstertitel melden sie). Das Werkzeug löst Captchas absichtlich
+   nicht automatisch: Die Abfrage ist die Schutzmaßnahme des Registers gegen Massenabrufe, das Register sperrt bei
+   Umgehung IP-Adressen. Einrichtung: `pip install -r requirements-bilanzen.txt`, `playwright install chromium` (oder
+   `BILANZ_CHROMIUM=/usr/bin/chromium`), Probelauf mit `python3 -m bilanzen diagnose "Energieberatung" --sichtbar`
+   (legt je Schritt Bildschirmfoto und Quelltext in `daten/diagnose/` ab).
+3. **Dateien** (unter „Weitere Werkzeuge“): einzelne Veröffentlichungen als HTML oder Kennzahlen als CSV (lizenzierte
+   Daten, eigene Listen; Spalten werden am Namen erkannt, Zahlen im deutschen Format, EUR oder TEUR).
+
+Der Bundesanzeiger (Altbestand bis Geschäftsjahr 2021) ist nur noch über die Kommandozeile erreichbar
+(`--quelle bundesanzeiger`) und in der Oberfläche nicht mehr sichtbar.
+
 ```
 bilanzen/
-  openregister.py    Quelle OpenRegister: Firmensuche und Finanzdaten aller Jahre über die Schnittstelle (ohne Captcha)
-  bundesanzeiger.py  Suche, Trefferlisten, Seitenwechsel, Dokumentabruf, Captcha-Erkennung (ohne automatisches Lösen)
-  parser.py          Bilanz-/GuV-Posten aus dem HTML (Tabellen und Fließtext, EUR/TEUR, Fehlbeträge, Größenklasse, Mitarbeiter)
-  kennzahlen.py      EK-Quote, Renditen, Liquidität, Wachstum, Score 0–100 mit Ampel und Begründung je Unternehmen
-  bewertung.py       Branchenbild: Gewinnanteil, Margen, Wachstum, Krisenanteil, Einstiegshürden, Urteil
-  vorreiter.py       Rangliste nach Wachstum, Ertrag, Größe, Substanz, Mehrjahrestrend (Perzentile in der Vergleichsgruppe)
-  csv_import.py      Kennzahlen aus CSV-Dateien (Datenanbieter, eigene Listen) in dieselbe Datenbank
-  speicher.py        SQLite (Firmen, Abschlüsse mit Originaldokument, Kennzahlen, übersprungene Treffer)
-  auftraege.py       Hintergrundaufträge mit Pause zwischen Anfragen und Captcha-Stopp
-  server.py          HTTP-Server und JSON-API, static/index.html ist die Oberfläche
+  openregister.py        Quelle OpenRegister: Firmensuche und Finanzdaten aller Jahre über die Schnittstelle
+  unternehmensregister.py Quelle Unternehmensregister: gesteuerter Browser, Captcha zur Lösung durchreichen
+  bundesanzeiger.py      Altbestand bis 2021 (Kommandozeile)
+  parser.py              Bilanz-/GuV-Posten aus HTML-Veröffentlichungen (Tabellen und Fließtext, EUR/TEUR, Fehlbeträge, Größenklasse, Mitarbeiter)
+  kennzahlen.py          EK-Quote, Renditen, Liquidität, Wachstum, Score 0–100 mit Ampel und Begründung je Unternehmen
+  bewertung.py           Branchenurteil: Gewinnanteil, Margen, Wachstum, Krisenanteil, Einstiegshürden
+  vorreiter.py           Rangliste nach Wachstum, Ertrag, Größe, Substanz, Mehrjahrestrend (Perzentile in der Vergleichsgruppe)
+  csv_import.py          Kennzahlen aus CSV-Dateien
+  speicher.py            SQLite (Firmen, Abschlüsse mit Originaldokument, Kennzahlen, übersprungene Treffer)
+  auftraege.py           Hintergrundaufträge mit Pause zwischen Anfragen und Captcha-Stopp
+  server.py              HTTP-Server und JSON-API, static/index.html ist die Oberfläche
 ```
-
-### So läuft eine Auswertung
-
-1. Suchbegriffe eingeben (eine Branche oder ein Namensbestandteil je Zeile) und Trefferseiten je Begriff wählen
-   (20 Treffer je Seite; „Energieberatung“ liefert im Bereich Rechnungslegung rund 760 Treffer).
-2. Der Auftrag läuft im Hintergrund und wartet zwischen zwei Anfragen (`BILANZ_PAUSE`, Standard 2 s).
-3. Vor dem ersten Jahresabschluss zeigt der Bundesanzeiger eine **Sicherheitsabfrage (Captcha)**. Das Bild erscheint
-   im Auftrag; Sie tippen die Zeichen ein, der Auftrag läuft weiter. Das Werkzeug löst Captchas absichtlich nicht
-   automatisch – das ist der Schutz des Bundesanzeigers vor Massenabrufen, und so bleibt die Nutzung im Rahmen
-   dessen, was dort einem menschlichen Nutzer offensteht.
-4. Jedes Dokument wird gespeichert (Original einsehbar), ausgelesen und bewertet. Die Firmenliste ist sortier- und
-   filterbar, ein Klick öffnet Posten, Kennzahlen, Einschätzung und das Originaldokument. CSV-Export für Excel.
-5. Das Branchenbild fasst alle Unternehmen eines Suchbegriffs zusammen; die Begründung nennt die Zahlen, auf denen
-   das Urteil beruht, und die Einschränkungen (Stichprobengröße, fehlende GuV, Datenstand).
 
 ### Vorreiter finden
 
@@ -244,77 +256,20 @@ gewichtete Mittel (35/25/20/10/10 %). Daneben zeigt die Karte die Spitzenreiter 
 und Jahrgänge geladen sind, desto belastbarer wird die Liste; der Mehrjahrestrend braucht mindestens zwei Abschlüsse
 je Firma (Bundesanzeiger bis 2021 plus Unternehmensregister ab 2022 ergibt die Zeitreihe).
 
-### Datenbank aufbauen
-
-Vier Wege füllen dieselbe SQLite-Datenbank, Branchenbild und Vorreiter-Ranking rechnen über alles zusammen:
-
-0. **OpenRegister-Schnittstelle (empfohlen, ohne Captcha):** [OpenRegister](https://openregister.de) ist ein Datenanbieter,
-   der die Bundesanzeiger-Jahresabschlüsse bereits strukturiert bereithält und per dokumentierter API liefert
-   ([docs.openregister.de](https://docs.openregister.de)): Firmensuche nach Unternehmensgegenstand („Energieberatung“ im
-   Gesellschaftszweck, das trifft die Branche besser als der Name), Firmenname, Ort oder WZ-Branchencode; je Firma Bilanz,
-   GuV und Kennzahlen **aller verfügbaren Geschäftsjahre** in einem Abruf, dazu das Originaldokument. Kostenloser
-   Schlüssel unter [openregister.de/keys](https://openregister.de/keys) mit 500 Punkten im Monat (eine Suchseite mit bis zu
-   50 Firmen kostet 10 Punkte, die Finanzdaten einer Firma 10 Punkte, also rund 45 Firmen frei je Monat); darüber 1 Cent je
-   Punkt, 1.000 Firmen entsprechen etwa 100 €. Schlüssel als `OPENREGISTER_API_KEY` setzen, in der Oberfläche „OpenRegister“
-   als Quelle wählen oder `python3 -m bilanzen suche "Energieberatung" --quelle openregister`. Bereits geladene Firmen werden
-   nicht erneut abgerufen (keine doppelten Punkte). Fehlt bei kleinen Gesellschaften die GuV, liefert OpenRegister eine
-   modellierte Umsatzschätzung; sie wird als Hinweis angezeigt, fließt aber nicht in die Kennzahlen ein.
-1. **Abruf aus den Portalen** (Bundesanzeiger, Unternehmensregister): Aufträge laufen im Hintergrund in einer Sitzung;
-   eine Sicherheitsabfrage erscheint nur, wenn das Portal sie verlangt. Die Oberfläche meldet sie mit Ton,
-   Browser-Benachrichtigung und im Fenstertitel, sodass Sie nebenbei arbeiten können. **Das Werkzeug löst Captchas
-   absichtlich nicht automatisch**: Die Abfrage ist die Schutzmaßnahme der Portale gegen Massenabrufe, beide sperren
-   bei Umgehung IP-Adressen, und ein Umgehen verstieße gegen den erkennbaren Willen der Betreiber.
-2. **CSV-Import** (`python3 -m bilanzen import-csv daten.csv --suchbegriff Energieberatung` oder in der Oberfläche): Für
-   einen vollständigen Bestand ohne Eingaben bieten Datenanbieter lizenzierte Bilanzdaten als Export an. Spalten werden
-   am Namen erkannt (Firma, Ort, Geschäftsjahr/Stichtag, Bilanzsumme, Eigenkapital, Umsatz, Jahresüberschuss,
-   Mitarbeiter, Verbindlichkeiten, …), Zahlen im deutschen Format, Beträge in EUR oder TEUR, Vorjahreswerte aus Spalten
-   mit „Vorjahr“ oder aus der Zeile desselben Unternehmens zum Vorjahr.
-3. **Einzelimport** von Abschluss-Dokumenten (HTML) aus dem Unternehmensregister.
-
 ### Was die Zahlen aussagen – und was nicht
 
 - **Kleinst- und kleine Kapitalgesellschaften** (die Mehrheit der Energieberater-GmbHs/UGs) veröffentlichen nur
   eine verkürzte Bilanz ohne GuV. Umsatz und Marge sind dann nicht ablesbar; das Werkzeug schätzt das Jahresergebnis
   aus der Veränderung des Eigenkapitals (Untergrenze, da Ausschüttungen nicht sichtbar sind) und kennzeichnet das.
 - **Zeitverzug:** Abschlüsse werden bis zu zwölf Monate nach Geschäftsjahresende veröffentlicht.
-- **Zwei Quellen:** Seit dem 1. August 2022 werden Jahresabschlüsse im
-  [Unternehmensregister](https://www.unternehmensregister.de) offengelegt; im Bundesanzeiger stehen die
-  Veröffentlichungen bis dahin (Geschäftsjahre bis etwa 2021, Nachzügler auch später). Für ein aktuelles Bild
-  gehören beide Quellen zusammen: Bundesanzeiger für die Jahre bis 2021, Unternehmensregister ab 2022 (siehe unten).
-  Daneben lassen sich einzelne Abschlüsse als HTML-Datei importieren („Importieren“ oder `python3 -m bilanzen import`).
+- **Datenstand:** Die Schnittstelle liefert alle veröffentlichten Jahre je Firma (Zeitreihe für den Mehrjahrestrend);
+  der direkte Registerabruf liefert die dort offengelegten Abschlüsse ab Geschäftsjahr 2022.
 - **Wer fehlt:** Einzelunternehmer, Freiberufler und GbRs veröffentlichen nicht. Das Bild zeigt die
   Kapitalgesellschaften der Branche.
 - Der Parser ist auf die üblichen Formen der Veröffentlichung ausgelegt (Tabellen mit Berichts- und Vorjahresspalte,
   Fließtext, EUR oder TEUR). Bei ungewöhnlichen Dokumenten fehlen Posten; die Firma zeigt dann Hinweise und die
   Datenlage „eingeschränkt“ oder „gering“. Nach Parser-Verbesserungen wertet „Neu auswerten“ alle gespeicherten
   Dokumente erneut aus, ohne sie neu zu laden.
-
-### Quelle Unternehmensregister (ab Geschäftsjahr 2022)
-
-Das Unternehmensregister ist eine reine JavaScript-Anwendung: Suche und Trefferliste entstehen erst im Browser,
-Veröffentlichungen stehen hinter einer Sicherheitsabfrage, und zu viele Abrufe sperren die IP-Adresse. Das
-Werkzeug bedient die Seite deshalb mit einem gesteuerten Chromium (Playwright) genauso wie ein Mensch: Formular
-ausfüllen, blättern, Veröffentlichung öffnen, Captcha-Bild in die Oberfläche durchreichen. Einrichtung:
-
-```bash
-pip install -r requirements-bilanzen.txt
-playwright install chromium            # oder: BILANZ_CHROMIUM=/usr/bin/chromium (Docker-Image hat es bereits)
-python3 -m bilanzen diagnose "Energieberatung" --sichtbar
-```
-
-`diagnose` spielt Suche, erste Trefferseite und die erste Veröffentlichung bis zur Sicherheitsabfrage durch und legt
-je Schritt Bildschirmfoto und Seitenquelltext in `daten/diagnose/` ab (`bericht.txt` fasst zusammen). Mit `--sichtbar`
-sehen Sie dem Browser zu. In der Oberfläche wählen Sie dann oben bei „Neue Suche“ die Quelle; die Oberfläche zeigt
-an, ob Playwright und Chromium bereitstehen. Treffer aus dem Unternehmensregister tragen die Marke „UReg“, das
-Branchenbild rechnet beide Quellen zusammen (je Firma zählt der jüngste Abschluss).
-
-Hinweise: Die Erkennung von Trefferliste, Veröffentlichung und Captcha arbeitet mit sichtbaren Texten und
-Barrierefreiheits-Beschriftungen der Seite („Sicherheitsabfrage“, „Springe eine Seite weiter“, Links mit
-„Jahresabschluss“), weil das Register seine Seitenstruktur bei jedem Neubau ändert. Ändert sich die Seite so, dass
-etwas nicht mehr erkannt wird, zeigt `diagnose`, wo es hakt. Hinterlegte (nicht veröffentlichte) Abschlüsse von
-Kleinstkapitalgesellschaften sind im Unternehmensregister kostenpflichtig und werden übersprungen. Die
-Tests dieses Teils laufen gegen eine lokale Nachbildung der Seite (`tests/fixtures/bilanzen/ureg/`), nicht gegen das
-Register selbst; der Ablauf auf der echten Seite ist mit `diagnose` auf Ihrem Rechner zu prüfen.
 
 ### Betrieb
 
@@ -328,8 +283,8 @@ systemd: `deploy/eco-bilanzen.service`.
 | `BILANZ_HOST`, `BILANZ_PORT` | `127.0.0.1`, `8081` | Adresse des Servers |
 | `BILANZ_PASSWORT` | leer | Pflicht, sobald `BILANZ_HOST` nicht `127.0.0.1` ist |
 | `BILANZ_DATENBANK` | `daten/bilanzen.sqlite` | SQLite-Datei (enthält auch die Originaldokumente) |
-| `BILANZ_PAUSE` | `2` | Sekunden zwischen zwei Anfragen an den Bundesanzeiger (mindestens 1) |
-| `BILANZ_MAX_SEITEN` | `5` | Vorgabe für Trefferseiten je Suchbegriff in der Oberfläche (0 = alle) |
+| `BILANZ_PAUSE` | `2` | Sekunden zwischen zwei Anfragen an die Register-Portale (mindestens 1); die Schnittstelle nutzt ein Viertel davon |
+| `BILANZ_MAX_SEITEN` | `5` | Vorgabe für Trefferseiten je Suchbegriff auf der Kommandozeile (0 = alle) |
 | `BILANZ_VERTRAUE_PROXY` | `0` | `1` hinter nginx/Caddy (echte Client-IP im Protokoll) |
 | `BILANZ_CHROMIUM` | leer | Pfad zu einem Chromium für das Unternehmensregister (leer = von `playwright install` installiertes) |
 | `OPENREGISTER_API_KEY` | leer | Schlüssel für die OpenRegister-Schnittstelle (Quelle „OpenRegister“) |

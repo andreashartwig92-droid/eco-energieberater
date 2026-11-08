@@ -5,9 +5,9 @@ Routen (JSON, Anmeldung über Header `Authorization: Bearer <BILANZ_PASSWORT>`, 
   GET  /gesund                        Health-Check
   GET  /api/info                      Name, Passwortpflicht, Statistik, Suchbegriffe
   GET  /api/auftraege                 alle Aufträge
-  POST /api/auftraege                 {begriffe: [...], max_seiten, nur_neue, nur_liste, quelle} → neuer Auftrag
-                                      quelle: "bundesanzeiger" (Standard), "unternehmensregister" (Browser nötig) oder
-                                      "openregister" (API-Schlüssel nötig; optionen: {suchfeld: zweck|name|branche, nur_aktive, ort})
+  POST /api/auftraege                 {begriffe: [...], max_seiten, nur_neue, nur_liste, quelle, optionen} → neuer Auftrag
+                                      quelle: "auto" (Standard: OpenRegister, sonst Unternehmensregister), "openregister",
+                                      "unternehmensregister", "bundesanzeiger"; optionen: {suchfeld: zweck|name|branche, nur_aktive, ort}
   GET  /api/auftraege/<id>            Zustand (inkl. Captcha-Bild als data-URL, wenn offen)
   POST /api/auftraege/<id>/captcha    {loesung}
   POST /api/auftraege/<id>/abbrechen
@@ -63,10 +63,18 @@ class Anwendung:
         from .unternehmensregister import verfuegbar
         ok, grund = verfuegbar(self.konfig.chromium)
         or_ok, or_grund = or_verfuegbar()
-        return {"openregister": {"bereit": or_ok, "hinweis": or_grund or "Schnittstelle: alle Jahre je Firma, Suche nach Unternehmensgegenstand, "
-                                                                     "ohne Captcha; 10 Punkte je Suchseite und je Firma"},
-                "bundesanzeiger": {"bereit": True, "hinweis": "Veröffentlichungen bis Geschäftsjahr 2021 (Nachzügler später), Captcha von Hand"},
-                "unternehmensregister": {"bereit": ok, "hinweis": grund or "Offenlegungen ab Geschäftsjahr 2022, gesteuerter Browser, Captcha von Hand"}}
+        return {"openregister": {"bereit": or_ok, "hinweis": or_grund or "Bilanz, GuV und Kennzahlen aller veröffentlichten Jahre je Firma, Suche im "
+                                                                     "Unternehmensgegenstand, ohne Captcha (10 Punkte je Suchseite und je Firma)"},
+                "unternehmensregister": {"bereit": ok, "hinweis": grund or "Offenlegungen ab Geschäftsjahr 2022 direkt vom Register, gesteuerter Browser"},
+                "bundesanzeiger": {"bereit": True, "hinweis": "Altbestand bis Geschäftsjahr 2021, nur über die Kommandozeile"}}
+
+    def quelle_standard(self):
+        """Automatische Wahl: Schnittstelle, wenn ein Schlüssel da ist, sonst das Unternehmensregister im Browser; leer, wenn nichts bereit ist."""
+        q = self.quellen()
+        for name in ("openregister", "unternehmensregister"):
+            if q[name]["bereit"]:
+                return name
+        return ""
 
     def angemeldet(self, header_wert):
         if not self.konfig.passwort_noetig:
@@ -141,7 +149,7 @@ class Handler(BaseHTTPRequestHandler):
             k = self.app.konfig
             return self._json(HTTPStatus.OK, {"name": k.name, "passwort_noetig": k.passwort_noetig, "pause": k.pause,
                                               "max_seiten_standard": k.max_seiten_standard, "statistik": self.app.speicher.statistik(),
-                                              "quellen": self.app.quellen()})
+                                              "quellen": self.app.quellen(), "quelle_standard": self.app.quelle_standard()})
         if not pfad.startswith("/api/"):
             return self._fehler(HTTPStatus.NOT_FOUND, "Nicht gefunden")
         if not self._pruefe_anmeldung():
@@ -234,10 +242,16 @@ class Handler(BaseHTTPRequestHandler):
                     begriffe = re.split(r"[\n;,]+", begriffe)
                 if not isinstance(begriffe, list):
                     raise ValueError("begriffe fehlt")
+                quelle = str(daten.get("quelle") or "auto")
+                if quelle == "auto":
+                    quelle = self.app.quelle_standard()
+                    if not quelle:
+                        raise ValueError("Keine Datenquelle bereit: OPENREGISTER_API_KEY setzen (openregister.de/keys) oder Playwright für das "
+                                         "Unternehmensregister einrichten (pip install -r requirements-bilanzen.txt).")
                 a = self.app.verwalter.anlegen(
                     [str(b) for b in begriffe], max_seiten=daten.get("max_seiten", self.app.konfig.max_seiten_standard),
                     nur_neue=daten.get("nur_neue", True), nur_liste=daten.get("nur_liste", False),
-                    quelle=str(daten.get("quelle") or "bundesanzeiger"),
+                    quelle=quelle,
                     optionen=daten.get("optionen") if isinstance(daten.get("optionen"), dict) else None)
                 return self._json(HTTPStatus.CREATED, a.als_dict())
             m = re.fullmatch(r"/api/auftraege/([0-9a-f]+)/captcha", pfad)

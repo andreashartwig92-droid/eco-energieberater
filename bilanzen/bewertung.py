@@ -115,8 +115,8 @@ def branchenbild(firmen, bezeichnung=""):
     score, urteil, gruende, hinweise = _urteil(kennzahlen, n)
     jahre = sorted(j for j in verteilungen["geschaeftsjahre"] if j.isdigit())
     if jahre and int(jahre[-1]) < date.today().year - 2:
-        hinweise.append(f"Jüngstes ausgewertetes Geschäftsjahr ist {jahre[-1]}: Der Bundesanzeiger enthält Abschlüsse bis 2021/22; "
-                        "neuere Abschlüsse stehen im Unternehmensregister und können importiert werden.")
+        hinweise.append(f"Jüngstes ausgewertetes Geschäftsjahr ist {jahre[-1]}; Abschlüsse werden mit bis zu zwölf Monaten Verzug "
+                        "offengelegt, neuere Jahre lassen sich mit „Daten holen“ nachladen.")
     return {"bezeichnung": bezeichnung, "anzahl": n, "score": score, "urteil": urteil, "begruendung": gruende,
             "hinweise": hinweise, "kennzahlen": kennzahlen, "verteilungen": verteilungen}
 

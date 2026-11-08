@@ -19,12 +19,10 @@
   header .leise { color: var(--leise); font-size: 13px; }
   header .rechts { margin-left: auto; display: flex; gap: 8px; align-items: center; }
   main { max-width: 1400px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; grid-template-columns: 1fr; }
-  @media (min-width: 1000px) { main { grid-template-columns: 380px 1fr; } .breit { grid-column: 1 / -1; } }
   .karte { background: var(--flaeche); border: 1px solid var(--rand); border-radius: 10px; box-shadow: var(--schatten); padding: 16px; }
   .karte h2 { font-size: 15px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--leise); }
   label { display: block; font-size: 13px; color: var(--leise); margin: 10px 0 4px; }
   textarea, input[type=text], input[type=number], input[type=password], select { width: 100%; padding: 8px 10px; border: 1px solid var(--rand); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
-  textarea { min-height: 70px; resize: vertical; }
   button { font: inherit; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--rand); background: var(--flaeche); color: var(--text); cursor: pointer; }
   button.primaer { background: var(--akzent); color: #fff; border-color: var(--akzent); }
   button:disabled { opacity: .5; cursor: default; }
@@ -40,6 +38,7 @@
   .ampel { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
   .gruen { background: var(--gruen); } .gelb { background: var(--gelb); } .rot { background: var(--rot); } .grau { background: var(--grau); }
   .marke { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--akzent-hell); color: var(--akzent); margin: 2px 4px 2px 0; }
+  .marke.warn { background: #fdecea; color: #7a1f16; }
   .urteil { font-size: 26px; font-weight: 700; margin: 4px 0; }
   .urteil.attraktiv { color: var(--gruen); } .urteil.bedingt { color: var(--gelb); } .urteil.wenig { color: var(--rot); }
   .kacheln { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 12px 0; }
@@ -54,7 +53,12 @@
   .balken .spur { flex: 1; background: var(--bg); border-radius: 4px; height: 14px; overflow: hidden; }
   .balken .fuellung { height: 100%; background: var(--akzent); }
   .balken .n { width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
-  .auftrag { border: 1px solid var(--rand); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+  .suche { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  @media (min-width: 900px) { .suche { grid-template-columns: 3fr 1fr auto; align-items: end; } }
+  .suche input[type=text] { font-size: 17px; padding: 12px 14px; }
+  .suche button { padding: 12px 22px; font-size: 16px; }
+  .quelle-status { margin-top: 10px; }
+  .auftrag { border: 1px solid var(--rand); border-radius: 8px; padding: 10px; margin-top: 10px; }
   .auftrag .kopf { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
   .auftrag .fortschritt { font-size: 13px; color: var(--leise); margin-top: 4px; }
   .captcha { background: var(--akzent-hell); border-radius: 8px; padding: 12px; margin-top: 10px; }
@@ -73,9 +77,12 @@
   .leer { color: var(--leise); padding: 20px; text-align: center; }
   .fehlermeldung { background: #fdecea; color: #7a1f16; border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
   details summary { cursor: pointer; color: var(--leise); font-size: 13px; }
+  details.werkzeuge summary { font-size: 15px; color: var(--text); font-weight: 600; }
   .tabellenkopf { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
   .tabellenkopf input { max-width: 260px; }
   .tabellenkopf .rechts { margin-left: auto; }
+  .ergebnis-kopf { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ergebnis-kopf select { max-width: 420px; }
 </style>
 </head>
 <body>
@@ -91,68 +98,60 @@
 
 <main>
   <section class="karte" id="suche-karte">
-    <h2>Neue Suche</h2>
-    <label for="quelle">Quelle</label>
-    <select id="quelle">
-      <option value="openregister">OpenRegister-Schnittstelle – alle Jahre, ohne Captcha (API-Schlüssel)</option>
-      <option value="bundesanzeiger">Bundesanzeiger – Veröffentlichungen bis Geschäftsjahr 2021 (Captcha von Hand)</option>
-      <option value="unternehmensregister">Unternehmensregister – Offenlegungen ab Geschäftsjahr 2022 (gesteuerter Browser)</option>
-    </select>
-    <div class="hinweis" id="quelle-hinweis"></div>
-    <div id="openregister-optionen">
-      <label for="or-suchfeld">Suchen in</label>
-      <select id="or-suchfeld">
-        <option value="zweck">Unternehmensgegenstand (Branche; mehrere Wörter mit Komma = oder)</option>
-        <option value="name">Firmenname</option>
-        <option value="branche">WZ-2025-Branchencode (z. B. 71.12)</option>
-      </select>
-      <label for="or-ort">Orte eingrenzen (optional, Komma-getrennt)</label>
-      <input type="text" id="or-ort" placeholder="Hamburg, Berlin">
+    <div class="suche">
+      <div><label for="begriff">Branche oder Suchbegriff (im Unternehmensgegenstand; mehrere mit Komma = oder)</label>
+        <input type="text" id="begriff" placeholder="Energieberatung, Energieberater" autocomplete="off"></div>
+      <div><label for="or-ort">Orte (optional)</label><input type="text" id="or-ort" placeholder="Hamburg, Berlin"></div>
+      <div><button class="primaer" id="start">Daten holen</button></div>
+    </div>
+    <details style="margin-top:8px"><summary>Einstellungen</summary>
+      <div class="zeile">
+        <div><label for="or-suchfeld">Suchen in</label>
+          <select id="or-suchfeld">
+            <option value="zweck">Unternehmensgegenstand (Branche)</option>
+            <option value="name">Firmenname</option>
+            <option value="branche">WZ-2025-Branchencode (z. B. 71.12)</option>
+          </select></div>
+        <div><label for="max-firmen">Höchstens Firmen je Suchbegriff (0 = alle)</label><input type="number" id="max-firmen" min="0" step="50" value="100"></div>
+      </div>
       <label><input type="checkbox" id="or-aktiv" checked> Nur aktive Firmen</label>
-    </div>
-    <label for="begriffe">Suchbegriffe (eine Branche oder ein Firmenbestandteil je Zeile)</label>
-    <textarea id="begriffe" placeholder="Energieberatung&#10;Energieberater&#10;Gebäudeenergieberatung"></textarea>
-    <div class="zeile">
-      <div><label for="max-seiten">Trefferseiten je Begriff (0 = alle) <span id="max-seiten-hinweis" class="hinweis"></span></label><input type="number" id="max-seiten" min="0" value="5"></div>
-    </div>
-    <label><input type="checkbox" id="nur-neue" checked> Bereits gespeicherte Abschlüsse überspringen</label>
-    <label><input type="checkbox" id="nur-liste"> Nur Trefferliste anzeigen, keine Dokumente laden</label>
-    <div class="zeile" style="margin-top:12px">
-      <button class="primaer" id="start">Suche starten</button>
-    </div>
-    <p class="hinweis">Die OpenRegister-Schnittstelle liefert Bilanz, GuV und Kennzahlen aller Jahre je Firma ohne Sicherheitsabfrage
-      (Schlüssel: openregister.de/keys, 500 Punkte im Monat frei). Die beiden Portale zeigen Jahresabschlüsse nur nach einer Sicherheitsabfrage (Captcha). Sie erscheint hier im Auftrag und
-      wird von Ihnen gelesen und eingetippt; der Auftrag läuft danach weiter. Zwischen den Anfragen wartet das Werkzeug einige Sekunden.</p>
+      <label><input type="checkbox" id="nur-neue" checked> Bereits gespeicherte Firmen nicht erneut abrufen</label>
+    </details>
+    <div class="quelle-status hinweis" id="quelle-status"></div>
     <div id="auftraege"></div>
   </section>
 
-  <section class="karte" id="branche-karte">
-    <h2>Branchenbild</h2>
-    <div class="zeile">
-      <div><label for="filter-begriff">Suchbegriff / Branche</label><select id="filter-begriff"><option value="">Alle gespeicherten Unternehmen</option></select></div>
-      <button id="aktualisieren" style="align-self:flex-end">Aktualisieren</button>
+  <section class="karte" id="ergebnis-karte">
+    <div class="ergebnis-kopf">
+      <h2 style="margin:0">Auswertung für</h2>
+      <select id="filter-begriff"><option value="">alle gespeicherten Unternehmen</option></select>
+      <button id="aktualisieren">Aktualisieren</button>
+      <span class="hinweis" id="ergebnis-hinweis"></span>
     </div>
-    <div id="branche"><div class="leer">Noch keine ausgewerteten Abschlüsse.</div></div>
   </section>
 
-  <section class="karte breit" id="vorreiter-karte">
-    <h2>Vorreiter</h2>
+  <section class="karte" id="branche-karte">
+    <h2>Branchenurteil: Lohnt der Einstieg?</h2>
+    <div id="branche"><div class="leer">Noch keine Daten. Oben eine Branche eingeben und „Daten holen“.</div></div>
+  </section>
+
+  <section class="karte" id="vorreiter-karte">
+    <h2>Vorreiter der Branche</h2>
     <div class="tabellenkopf">
       <span class="hinweis" id="vorreiter-info"></span>
       <div class="rechts zeile"><label for="vorreiter-n" style="margin:0">Anzahl</label><select id="vorreiter-n"><option>10</option><option selected>20</option><option>50</option><option value="0">alle</option></select></div>
     </div>
-    <div id="vorreiter"><div class="leer">Noch keine ausgewerteten Abschlüsse.</div></div>
+    <div id="vorreiter"><div class="leer">Noch keine Daten.</div></div>
   </section>
 
-  <section class="karte breit" id="firmen-karte">
-    <h2>Unternehmen</h2>
+  <section class="karte" id="firmen-karte">
+    <h2>Alle Unternehmen</h2>
     <div class="tabellenkopf">
       <input type="text" id="filter-text" placeholder="Name oder Ort filtern …">
       <select id="filter-ampel"><option value="">alle Ampeln</option><option value="gruen">grün</option><option value="gelb">gelb</option><option value="rot">rot</option><option value="grau">ohne Bewertung</option></select>
       <span class="hinweis" id="firmen-anzahl"></span>
       <div class="rechts zeile">
         <button id="export">CSV exportieren</button>
-        <button id="neu-berechnen" title="Alle gespeicherten Dokumente mit dem aktuellen Parser neu auswerten">Neu auswerten</button>
       </div>
     </div>
     <div style="overflow:auto">
@@ -169,28 +168,28 @@
     </div>
   </section>
 
-  <section class="karte breit">
-    <h2>Abschlüsse importieren (z. B. aus dem Unternehmensregister)</h2>
-    <p class="hinweis">Seit August 2022 werden neue Jahresabschlüsse im <a href="https://www.unternehmensregister.de/" target="_blank" rel="noopener">Unternehmensregister</a>
-      offengelegt. Dort die Veröffentlichung öffnen, die Seite als HTML speichern („Webseite, nur HTML“) und hier hochladen. Die Datei wird genauso ausgewertet wie ein Bundesanzeiger-Abruf.</p>
-    <div class="zeile">
-      <div><label for="import-begriff">Suchbegriff / Branche zuordnen</label><input type="text" id="import-begriff" placeholder="Energieberatung"></div>
-      <div><label for="import-dateien">Dateien (HTML/XHTML)</label><input type="file" id="import-dateien" multiple accept=".html,.htm,.xhtml,.xml,text/html"></div>
-      <button id="import-start" style="align-self:flex-end">Importieren</button>
-    </div>
-    <div id="import-ergebnis"></div>
-    <hr style="border:0;border-top:1px solid var(--rand);margin:16px 0">
-    <h2>Kennzahlen aus CSV übernehmen (lizenzierte Daten, eigene Listen)</h2>
-    <p class="hinweis">Für einen vollständigen Datenbestand ohne Captcha-Eingaben bieten Datenanbieter lizenzierte Bilanzdaten als Export an.
-      Eine CSV mit Kopfzeile (Firma, Ort, Geschäftsjahr, Bilanzsumme, Eigenkapital, Umsatz, Jahresüberschuss, Mitarbeiter … – Spaltennamen werden erkannt)
-      landet in derselben Datenbank und fließt in Branchenbild und Vorreiter-Ranking ein.</p>
-    <div class="zeile">
-      <div><label for="csv-begriff">Suchbegriff / Branche zuordnen</label><input type="text" id="csv-begriff" placeholder="Energieberatung"></div>
-      <div><label for="csv-dateien">CSV-Dateien</label><input type="file" id="csv-dateien" multiple accept=".csv,text/csv"></div>
-      <label style="flex:0 0 auto"><input type="checkbox" id="csv-teur"> Beträge in TEUR</label>
-      <button id="csv-start" style="align-self:flex-end">CSV importieren</button>
-    </div>
-    <div id="csv-ergebnis"></div>
+  <section class="karte">
+    <details class="werkzeuge"><summary>Weitere Werkzeuge: Dateien importieren, neu auswerten</summary>
+      <h2 style="margin-top:12px">Abschluss-Dokumente (HTML) importieren</h2>
+      <p class="hinweis">Einzelne Veröffentlichungen aus dem <a href="https://www.unternehmensregister.de/" target="_blank" rel="noopener">Unternehmensregister</a>:
+        Seite als HTML speichern und hier hochladen.</p>
+      <div class="zeile">
+        <div><label for="import-begriff">Branche zuordnen</label><input type="text" id="import-begriff" placeholder="Energieberatung"></div>
+        <div><label for="import-dateien">Dateien (HTML/XHTML)</label><input type="file" id="import-dateien" multiple accept=".html,.htm,.xhtml,.xml,text/html"></div>
+        <button id="import-start" style="align-self:flex-end">Importieren</button>
+      </div>
+      <div id="import-ergebnis"></div>
+      <h2 style="margin-top:16px">Kennzahlen aus CSV übernehmen</h2>
+      <p class="hinweis">Spalten werden am Namen erkannt (Firma, Ort, Geschäftsjahr, Bilanzsumme, Eigenkapital, Umsatz, Jahresüberschuss, Mitarbeiter …), Zahlen im deutschen Format.</p>
+      <div class="zeile">
+        <div><label for="csv-begriff">Branche zuordnen</label><input type="text" id="csv-begriff" placeholder="Energieberatung"></div>
+        <div><label for="csv-dateien">CSV-Dateien</label><input type="file" id="csv-dateien" multiple accept=".csv,text/csv"></div>
+        <label style="flex:0 0 auto"><input type="checkbox" id="csv-teur"> Beträge in TEUR</label>
+        <button id="csv-start" style="align-self:flex-end">CSV importieren</button>
+      </div>
+      <div id="csv-ergebnis"></div>
+      <div class="zeile" style="margin-top:16px"><button id="neu-berechnen" title="Alle gespeicherten Dokumente mit dem aktuellen Parser neu auswerten">Alle Dokumente neu auswerten</button></div>
+    </details>
   </section>
 </main>
 
@@ -205,17 +204,9 @@
   let sortierung = { feld: 'score', richtung: -1 };
   let aktiveAuftraege = 0;
   let quellen = {};
-  let quellenGesetzt = false;
-  function zeigeQuelle() {
-    const q = quellen[$('#quelle').value]; const el = $('#quelle-hinweis');
-    if (!q) { el.textContent = ''; return; }
-    el.textContent = (q.bereit ? '' : 'Nicht verfügbar: ') + q.hinweis;
-    el.style.color = q.bereit ? '' : 'var(--rot)';
-    $('#start').disabled = !q.bereit;
-    $('#openregister-optionen').style.display = $('#quelle').value === 'openregister' ? '' : 'none';
-    $('#max-seiten-hinweis').textContent = $('#quelle').value === 'openregister' ? '50 Firmen je Seite, 10 Punkte je Seite und je Firma' : '20 Treffer je Seite';
-  }
-  $('#quelle').onchange = zeigeQuelle;
+  let quelleStandard = '';
+  const QUELLEN_NAMEN = { openregister: 'OpenRegister-Schnittstelle', unternehmensregister: 'Unternehmensregister (gesteuerter Browser)', bundesanzeiger: 'Bundesanzeiger', csv: 'CSV', import: 'Import' };
+  const PRO_SEITE = { openregister: 50, unternehmensregister: 20, bundesanzeiger: 20 };
 
   const fmtGeld = (w) => (w == null) ? '–' : new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(w) + ' €';
   const fmtPct = (w, stellen = 1) => (w == null) ? '–' : new Intl.NumberFormat('de-DE', { minimumFractionDigits: stellen, maximumFractionDigits: stellen }).format(w * 100) + ' %';
@@ -238,60 +229,76 @@
   $('#pw-ok').onclick = () => { passwort = $('#passwort').value; sessionStorage.setItem('bilanz_pw', passwort); alles(); };
   $('#passwort').addEventListener('keydown', e => { if (e.key === 'Enter') $('#pw-ok').click(); });
 
+  function zeigeQuelle() {
+    const el = $('#quelle-status');
+    if (!quelleStandard) {
+      const or = quellen.openregister || {}; const ur = quellen.unternehmensregister || {};
+      el.innerHTML = `<span class="marke warn">Keine Datenquelle bereit</span> ${esc(or.hinweis || '')}${ur.hinweis ? ' · ' + esc(ur.hinweis) : ''}`;
+      $('#start').disabled = true;
+      return;
+    }
+    const q = quellen[quelleStandard] || {};
+    el.innerHTML = `<span class="marke">Datenquelle: ${esc(QUELLEN_NAMEN[quelleStandard] || quelleStandard)}</span> ${esc(q.hinweis || '')}` +
+      (quelleStandard === 'unternehmensregister' ? ' – Vor dem ersten Dokument fragt das Register eine Sicherheitsabfrage ab; sie erscheint hier und wird von Ihnen eingetippt. ' +
+        'Ohne Captcha und mit allen Jahren je Firma: OpenRegister-Schlüssel (openregister.de/keys) als OPENREGISTER_API_KEY setzen.' : '');
+    $('#start').disabled = !q.bereit;
+  }
+
   async function info() {
     const r = await fetch('/api/info').then(r => r.json());
     document.title = r.name; $('#titel').textContent = r.name;
-    $('#max-seiten').value = r.max_seiten_standard;
     const s = r.statistik;
-    $('#statistik').textContent = `${s.firmen} Unternehmen · ${s.abschluesse} Abschlüsse · Pause ${r.pause} s`;
+    $('#statistik').textContent = `${s.firmen} Unternehmen · ${s.abschluesse} Abschlüsse`;
     if (r.passwort_noetig && !passwort) zeigePasswort();
     quellen = r.quellen || {};
-    if (!quellenGesetzt) { quellenGesetzt = true; const erste = ['openregister', 'bundesanzeiger', 'unternehmensregister'].find(q => quellen[q] && quellen[q].bereit); if (erste) $('#quelle').value = erste; }
+    quelleStandard = r.quelle_standard || '';
     zeigeQuelle();
     const sel = $('#filter-begriff'); const alt = sel.value;
-    sel.innerHTML = '<option value="">Alle gespeicherten Unternehmen</option>' +
-      Object.entries(s.suchbegriffe).map(([b, n]) => `<option value="${esc(b)}">${esc(b)} (${n})</option>`).join('');
-    sel.value = alt;
+    sel.innerHTML = '<option value="">alle gespeicherten Unternehmen</option>' +
+      Object.entries(s.suchbegriffe).map(([b, n]) => `<option value="${esc(b)}">${esc(b)} (${n} Firmen)</option>`).join('');
+    sel.value = Array.from(sel.options).some(o => o.value === alt) ? alt : '';
   }
 
-  // --- Aufträge ---------------------------------------------------------------
+  // --- Suche / Aufträge -----------------------------------------------------------
+  let zuletztGesucht = '';
   $('#start').onclick = async () => {
-    const begriffe = $('#begriffe').value.split(/\n/).map(s => s.trim()).filter(Boolean);
-    if (!begriffe.length) return alert('Bitte mindestens einen Suchbegriff eingeben.');
+    const begriff = $('#begriff').value.trim();
+    if (!begriff) return alert('Bitte eine Branche oder einen Suchbegriff eingeben.');
+    const proSeite = PRO_SEITE[quelleStandard] || 50;
+    const maxFirmen = Number($('#max-firmen').value);
+    const maxSeiten = maxFirmen > 0 ? Math.max(1, Math.ceil(maxFirmen / proSeite)) : 0;
     try {
-      await api('/api/auftraege', { method: 'POST', body: JSON.stringify({ begriffe, max_seiten: Number($('#max-seiten').value), nur_neue: $('#nur-neue').checked, nur_liste: $('#nur-liste').checked, quelle: $('#quelle').value,
+      await api('/api/auftraege', { method: 'POST', body: JSON.stringify({ begriffe: [begriff], max_seiten: maxSeiten, nur_neue: $('#nur-neue').checked, quelle: 'auto',
         optionen: { suchfeld: $('#or-suchfeld').value, ort: $('#or-ort').value, nur_aktive: $('#or-aktiv').checked } }) });
+      zuletztGesucht = begriff;
       ladeAuftraege();
     } catch (e) { alert(e.message); }
   };
+  $('#begriff').addEventListener('keydown', e => { if (e.key === 'Enter') $('#start').click(); });
 
   async function ladeAuftraege() {
     let r; try { r = await api('/api/auftraege'); } catch (e) { return; }
     aktiveAuftraege = r.auftraege.filter(a => !['fertig', 'fehler', 'abgebrochen'].includes(a.zustand)).length;
     captchaMelden(r.auftraege);
     const el = $('#auftraege');
-    el.innerHTML = r.auftraege.slice(0, 8).map(a => {
+    const zeigen = r.auftraege.filter((a, i) => i < 1 || !['fertig', 'fehler', 'abgebrochen'].includes(a.zustand) || (Date.now() / 1000 - (a.beendet || 0)) < 600).slice(0, 5);
+    el.innerHTML = zeigen.map(a => {
       const laeuft = !['fertig', 'fehler', 'abgebrochen'].includes(a.zustand);
-      const fortschritt = a.nur_liste ? `${a.treffer_gesehen} Treffer gelesen` : `${a.geladen} geladen · ${a.uebersprungen} übersprungen · ${a.fehler} Fehler · ${a.treffer_gesehen}/${a.treffer_gesamt || '?'} Treffer · ${a.seiten_gelesen} Seiten`;
+      const fortschritt = `${a.geladen} Abschlüsse geladen · ${a.uebersprungen} übersprungen · ${a.fehler} Fehler · ${a.treffer_gesehen}/${a.treffer_gesamt || '?'} Firmen · ${a.seiten_gelesen} Seiten`;
       let captcha = '';
       if (a.zustand === 'captcha' && a.captcha_bild) {
-        captcha = `<div class="captcha"><strong>Sicherheitsabfrage (${a.quelle === 'unternehmensregister' ? 'Unternehmensregister' : 'Bundesanzeiger'})</strong> – Zeichen ablesen und eingeben:
+        captcha = `<div class="captcha"><strong>Sicherheitsabfrage (${esc(QUELLEN_NAMEN[a.quelle] || a.quelle)})</strong> – Zeichen ablesen und eingeben, dann läuft der Abruf weiter:
           <img src="${a.captcha_bild}" alt="Captcha">
           <div class="zeile"><input type="text" id="captcha-${a.id}" autocomplete="off" autofocus placeholder="Zeichen"><button class="primaer" data-captcha="${a.id}">Absenden</button></div></div>`;
       }
-      let liste = '';
-      if (a.nur_liste && a.treffer_liste.length) {
-        liste = `<details><summary>${a.treffer_liste.length} Treffer anzeigen</summary><table><thead><tr><th>Firma</th><th>Ort</th><th>GJ bis</th><th>Veröffentlichung</th><th>gespeichert</th></tr></thead><tbody>` +
-          a.treffer_liste.map(t => `<tr><td>${esc(t.name)}</td><td>${esc(t.ort)}</td><td>${esc(t.gj_bis)}</td><td>${esc(t.titel)}${t.einsehbar ? '' : ' <span class="marke">nur hinterlegt</span>'}</td><td>${t.vorhanden ? '✓' : ''}</td></tr>`).join('') + '</tbody></table></details>';
-      }
       return `<div class="auftrag">
-        <div class="kopf"><div><strong>${a.begriffe.map(esc).join(', ')}</strong> <span class="marke">${a.quelle === 'unternehmensregister' ? 'Unternehmensregister' : a.quelle === 'openregister' ? 'OpenRegister' : 'Bundesanzeiger'}</span> <span class="zustand ${a.zustand}">${a.zustand}${a.aktueller_begriff && laeuft ? ' · ' + esc(a.aktueller_begriff) : ''}</span></div>
+        <div class="kopf"><div><strong>${a.begriffe.map(esc).join(', ')}</strong> <span class="marke">${esc(QUELLEN_NAMEN[a.quelle] || a.quelle)}</span> <span class="zustand ${a.zustand}">${a.zustand === 'fertig' ? 'fertig' : a.zustand === 'sucht' ? 'sucht Firmen' : a.zustand === 'laedt' ? 'lädt Abschlüsse' : a.zustand}</span></div>
           ${laeuft ? `<button data-abbrechen="${a.id}">Abbrechen</button>` : ''}</div>
         <div class="fortschritt">${fortschritt}${a.meldung ? ' – ' + esc(a.meldung) : ''}</div>
-        ${captcha}${liste}
+        ${captcha}
         <details><summary>Protokoll</summary><div class="protokoll">${a.protokoll.map(p => esc(p.text)).join('\n')}</div></details>
       </div>`;
-    }).join('') || '<p class="hinweis">Noch keine Aufträge.</p>';
+    }).join('');
     $$('[data-captcha]', el).forEach(b => b.onclick = async () => {
       const id = b.dataset.captcha; const eingabe = $('#captcha-' + id);
       try { await api(`/api/auftraege/${id}/captcha`, { method: 'POST', body: JSON.stringify({ loesung: eingabe.value }) }); b.disabled = true; setTimeout(ladeAuftraege, 800); } catch (e) { alert(e.message); }
@@ -300,12 +307,12 @@
     $$('[data-abbrechen]', el).forEach(b => b.onclick = async () => { await api(`/api/auftraege/${b.dataset.abbrechen}/abbrechen`, { method: 'POST', body: '{}' }); ladeAuftraege(); });
   }
 
-  // --- Branchenbild -------------------------------------------------------------
+  // --- Branchenurteil ---------------------------------------------------------------
   async function ladeBranche() {
     const begriff = $('#filter-begriff').value;
     let b; try { b = await api('/api/branche?suchbegriff=' + encodeURIComponent(begriff)); } catch (e) { return; }
     const el = $('#branche');
-    if (!b.anzahl) { el.innerHTML = '<div class="leer">Noch keine ausgewerteten Abschlüsse.</div>'; return; }
+    if (!b.anzahl) { el.innerHTML = '<div class="leer">Noch keine Daten. Oben eine Branche eingeben und „Daten holen“.</div>'; return; }
     const k = b.kennzahlen;
     const klasse = b.urteil.startsWith('attraktiv') ? 'attraktiv' : b.urteil.startsWith('bedingt') ? 'bedingt' : 'wenig';
     const balken = (titel, vert) => { const max = Math.max(1, ...Object.values(vert)); return `<div><div class="hinweis" style="margin-top:8px">${titel}</div>` +
@@ -329,10 +336,10 @@
       </div>
       <strong>Begründung</strong><ul class="liste">${b.begruendung.map(g => `<li>${esc(g)}</li>`).join('')}</ul>
       <strong>Einschränkungen</strong><ul class="liste hinweis">${b.hinweise.map(h => `<li>${esc(h)}</li>`).join('')}</ul>
-      ${balken('Größenklassen (Bilanzsumme)', b.verteilungen.groessenklassen)}
-      ${balken('Ampeln', b.verteilungen.ampeln)}
-      ${balken('Geschäftsjahre', b.verteilungen.geschaeftsjahre)}
-      ${balken('Rechtsformen', b.verteilungen.rechtsformen)}`;
+      <div class="spalten">
+        <div>${balken('Größenklassen (Bilanzsumme)', b.verteilungen.groessenklassen)}${balken('Ampeln', b.verteilungen.ampeln)}</div>
+        <div>${balken('Geschäftsjahre', b.verteilungen.geschaeftsjahre)}${balken('Rechtsformen', b.verteilungen.rechtsformen)}</div>
+      </div>`;
   }
 
   // --- Vorreiter ----------------------------------------------------------------------
@@ -341,7 +348,7 @@
     const begriff = $('#filter-begriff').value; const n = $('#vorreiter-n').value;
     let r; try { r = await api(`/api/vorreiter?suchbegriff=${encodeURIComponent(begriff)}&n=${n}`); } catch (e) { return; }
     const el = $('#vorreiter');
-    if (!r.anzahl) { el.innerHTML = '<div class="leer">Noch keine ausgewerteten Abschlüsse.</div>'; $('#vorreiter-info').textContent = ''; return; }
+    if (!r.anzahl) { el.innerHTML = '<div class="leer">Noch keine Daten.</div>'; $('#vorreiter-info').textContent = ''; return; }
     $('#vorreiter-info').textContent = `${r.bewertet} von ${r.anzahl} Unternehmen bewertet · Gewichte: ` + Object.entries(r.gewichte).map(([d, g]) => `${DIM_KURZ[d]} ${Math.round(g * 100)} %`).join(', ');
     const kat = Object.entries(r.kategorien).map(([d, liste]) => liste.length ? `<div class="kachel"><div class="titel">${esc(r.dimensionen[d])}</div>` +
       liste.slice(0, 3).map((x, i) => `<div>${i + 1}. <a href="#" data-firma="${x.id}">${esc(x.name)}</a> <span class="hinweis">${d === 'groesse' ? fmtGeld(x.wert) : fmtPct(x.wert, d === 'ertrag' ? 1 : 0)}</span></div>`).join('') + '</div>' : '').join('');
@@ -386,7 +393,7 @@
     $('#firmen tbody').innerHTML = liste.map(f => { const k = f.kennzahlen || {}; const w = k.wachstum_umsatz ?? k.wachstum_bilanzsumme;
       return `<tr class="klick" data-id="${f.id}">
         <td><span class="ampel ${k.ampel || 'grau'}"></span>${k.datenlage === 'eingeschraenkt' ? '<span title="Datenlage eingeschränkt">◐</span>' : k.datenlage === 'gering' ? '<span title="Datenlage gering">○</span>' : ''}</td>
-        <td>${esc(f.name)}${f.quelle === 'import' ? ' <span class="marke">Import</span>' : f.quelle === 'unternehmensregister' ? ' <span class="marke">UReg</span>' : f.quelle === 'openregister' ? ' <span class="marke">OpenRegister</span>' : f.quelle === 'csv' ? ' <span class="marke">CSV</span>' : ''}${f.anzahl_abschluesse > 1 ? ` <span class="marke">${f.anzahl_abschluesse} Jahre</span>` : ''}</td>
+        <td>${esc(f.name)}${f.anzahl_abschluesse > 1 ? ` <span class="marke">${f.anzahl_abschluesse} Jahre</span>` : ''}${f.quelle && f.quelle !== 'openregister' ? ` <span class="marke">${esc(QUELLEN_NAMEN[f.quelle] || f.quelle)}</span>` : ''}</td>
         <td>${esc(f.ort)}</td><td>${esc((f.gj_bis || '').slice(0, 4))}</td>
         <td class="zahl">${fmtGeld(k.bilanzsumme)}</td><td class="zahl">${fmtPct(k.eigenkapitalquote, 0)}</td>
         <td class="zahl">${fmtGeld(k.umsatz)}</td><td class="zahl">${fmtPct(k.umsatzrendite)}</td>
@@ -399,7 +406,7 @@
   $$('#firmen th[data-sort]').forEach(th => th.onclick = () => { const f = th.dataset.sort;
     sortierung = (sortierung.feld === f) ? { feld: f, richtung: -sortierung.richtung } : { feld: f, richtung: ['name', 'ort'].includes(f) ? 1 : -1 }; zeichneFirmen(); });
   $('#filter-text').oninput = zeichneFirmen; $('#filter-ampel').onchange = zeichneFirmen;
-  $('#filter-begriff').onchange = () => { ladeBranche(); ladeFirmen(); ladeVorreiter(); };
+  $('#filter-begriff').onchange = ergebnisse;
   $('#aktualisieren').onclick = alles;
   $('#export').onclick = async () => {
     const r = await fetch('/api/export.csv?suchbegriff=' + encodeURIComponent($('#filter-begriff').value), { headers: passwort ? { Authorization: 'Bearer ' + passwort } : {} });
@@ -423,11 +430,14 @@
     let f; try { f = await api('/api/firmen/' + id); } catch (e) { return alert(e.message); }
     const el = $('#detail-inhalt');
     const abschluesse = f.abschluesse;
+    const verlauf = abschluesse.slice().reverse();
     const render = (idx) => {
       const a = abschluesse[idx]; const k = a.kennzahlen; const p = a.abschluss.posten || {};
+      const zeitreihe = verlauf.length > 1 ? `<strong>Entwicklung</strong><div style="overflow:auto"><table><thead><tr><th>Geschäftsjahr</th><th class="zahl">Umsatz</th><th class="zahl">Ergebnis</th><th class="zahl">Bilanzsumme</th><th class="zahl">Eigenkapital</th><th class="zahl">EK-Quote</th><th class="zahl">MA</th><th class="zahl">Score</th></tr></thead><tbody>` +
+        verlauf.map(x => `<tr><td>${esc((x.gj_bis || '').slice(0, 4))}</td><td class="zahl">${fmtGeld(x.kennzahlen.umsatz)}</td><td class="zahl">${fmtGeld(x.kennzahlen.jahresueberschuss)}${x.kennzahlen.ergebnis_geschaetzt ? ' ≈' : ''}</td><td class="zahl">${fmtGeld(x.kennzahlen.bilanzsumme)}</td><td class="zahl">${fmtGeld(x.kennzahlen.eigenkapital)}</td><td class="zahl">${fmtPct(x.kennzahlen.eigenkapitalquote, 0)}</td><td class="zahl">${fmtZahl(x.kennzahlen.mitarbeiter)}</td><td class="zahl">${x.kennzahlen.score ?? '–'}</td></tr>`).join('') + '</tbody></table></div>' : '';
       el.innerHTML = `
         <div class="zeile" style="justify-content:space-between"><div><h3>${esc(f.name)}</h3><div class="hinweis">${esc(f.ort)} · ${esc(f.rechtsform || a.abschluss.rechtsform || '')} ${a.abschluss.groessenklasse ? '· ' + ({ kleinst: 'Kleinstkapitalgesellschaft', klein: 'kleine Kapitalgesellschaft', mittel: 'mittelgroße Kapitalgesellschaft', gross: 'große Kapitalgesellschaft' }[a.abschluss.groessenklasse] || a.abschluss.groessenklasse) : ''} · ${f.suchbegriffe.map(b => `<span class="marke">${esc(b)}</span>`).join('')}</div></div>
-          <div class="zeile" style="flex:0 0 auto"><select id="abschluss-wahl">${abschluesse.map((x, i) => `<option value="${i}" ${i === idx ? 'selected' : ''}>GJ bis ${esc(x.gj_bis || '?')} (${esc(x.quelle)})</option>`).join('')}</select>
+          <div class="zeile" style="flex:0 0 auto"><select id="abschluss-wahl">${abschluesse.map((x, i) => `<option value="${i}" ${i === idx ? 'selected' : ''}>Geschäftsjahr bis ${esc(x.gj_bis || '?')}</option>`).join('')}</select>
             <button id="loeschen" title="Firma mit allen Abschlüssen löschen">Löschen</button><button id="schliessen">Schließen</button></div></div>
         <div class="kacheln">
           <div class="kachel"><div class="wert"><span class="ampel ${k.ampel}"></span>${k.score ?? '–'}</div><div class="titel">Score (${esc(k.datenlage)})</div></div>
@@ -435,16 +445,17 @@
           <div class="kachel"><div class="wert">${fmtPct(k.eigenkapitalquote, 0)}</div><div class="titel">EK-Quote</div></div>
           <div class="kachel"><div class="wert">${fmtGeld(k.umsatz)}</div><div class="titel">Umsatz</div></div>
           <div class="kachel"><div class="wert">${fmtGeld(k.jahresueberschuss)}${k.ergebnis_geschaetzt ? ' ≈' : ''}</div><div class="titel">${k.ergebnis_geschaetzt ? 'Ergebnis (geschätzt aus ΔEK)' : 'Jahresergebnis'}</div></div>
+          <div class="kachel"><div class="wert">${fmtZahl(k.mitarbeiter)}</div><div class="titel">Mitarbeiter</div></div>
         </div>
+        ${zeitreihe}
         <strong>Einschätzung</strong><ul class="liste">${k.begruendung.map(g => `<li>${esc(g)}</li>`).join('')}</ul>
         ${(a.abschluss.hinweise || []).concat(a.abschluss.warnungen || []).length ? `<ul class="liste hinweis">${a.abschluss.hinweise.concat(a.abschluss.warnungen).map(h => `<li>${esc(h)}</li>`).join('')}</ul>` : ''}
         <div class="spalten">
           <div><strong>Posten</strong> <span class="hinweis">(${esc(a.abschluss.einheit)}, Berichtsjahr / Vorjahr)</span>
             <table><tbody>${POSTEN.filter(([n]) => p[n]).map(([n, t]) => `<tr><td>${t}</td><td class="zahl">${fmtGeld(p[n][0])}</td><td class="zahl hinweis">${fmtGeld(p[n][1])}</td></tr>`).join('') || '<tr><td class="leer">keine Posten erkannt</td></tr>'}</tbody></table></div>
           <div><strong>Kennzahlen</strong>
-            <table><tbody>${KENNZAHLEN.filter(([n]) => k[n] != null).map(([n, t, art]) => `<tr><td>${t}</td><td class="zahl">${fmt(k[n], art)}</td></tr>`).join('')}
-              <tr><td>Mitarbeiter (Durchschnitt)</td><td class="zahl">${fmtZahl(k.mitarbeiter)}</td></tr></tbody></table>
-            <p class="hinweis">${esc(a.titel)}<br>Veröffentlicht: ${esc(a.veroeffentlicht || '–')} · geladen ${esc(a.geladen)}${a.quelle_url && a.quelle !== 'import' ? ` · <a href="${esc(a.quelle_url)}" target="_blank" rel="noopener">${a.quelle === 'unternehmensregister' ? 'Unternehmensregister' : a.quelle === 'openregister' ? 'Quelle' : 'Bundesanzeiger'}</a>` : ''}</p>
+            <table><tbody>${KENNZAHLEN.filter(([n]) => k[n] != null).map(([n, t, art]) => `<tr><td>${t}</td><td class="zahl">${fmt(k[n], art)}</td></tr>`).join('')}</tbody></table>
+            <p class="hinweis">${esc(a.titel)}<br>Quelle: ${esc(QUELLEN_NAMEN[a.quelle] || a.quelle)}${a.veroeffentlicht ? ' · veröffentlicht ' + esc(a.veroeffentlicht) : ''} · geladen ${esc((a.geladen || '').slice(0, 10))}${a.quelle_url && /^https?:/.test(a.quelle_url) ? ` · <a href="${esc(a.quelle_url)}" target="_blank" rel="noopener">Original</a>` : ''}</p>
           </div>
         </div>
         ${a.roh_vorhanden ? `<details><summary>Originaldokument anzeigen</summary><iframe sandbox="" src="/api/abschluesse/${a.id}/roh"></iframe></details>` : ''}`;
@@ -507,11 +518,23 @@
     $('#start').addEventListener('click', () => { try { Notification.requestPermission(); } catch (e) {} }, { once: true });
   }
 
-  async function alles() { await info(); await Promise.all([ladeAuftraege(), ladeBranche(), ladeFirmen(), ladeVorreiter()]); }
+  async function ergebnisse() {
+    const begriff = $('#filter-begriff').value;
+    $('#ergebnis-hinweis').textContent = begriff ? '' : 'Branche wählen, um nur deren Unternehmen zu sehen.';
+    await Promise.all([ladeBranche(), ladeFirmen(), ladeVorreiter()]);
+  }
+  async function alles() { await info(); await Promise.all([ladeAuftraege(), ergebnisse()]); }
   alles();
   setInterval(() => { ladeAuftraege(); if (aktiveAuftraege) { info(); } }, 2500);
   let letzteAktive = 0;
-  setInterval(() => { if (letzteAktive && !aktiveAuftraege) { ladeBranche(); ladeFirmen(); ladeVorreiter(); } letzteAktive = aktiveAuftraege; }, 3000);
+  setInterval(async () => {
+    if (letzteAktive && !aktiveAuftraege) {
+      await info();
+      if (zuletztGesucht && Array.from($('#filter-begriff').options).some(o => o.value === zuletztGesucht)) $('#filter-begriff').value = zuletztGesucht;
+      ergebnisse();
+    }
+    letzteAktive = aktiveAuftraege;
+  }, 3000);
 })();
 </script>
 </body>

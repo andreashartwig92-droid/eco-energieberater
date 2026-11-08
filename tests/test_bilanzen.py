@@ -349,7 +349,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(status, 201)
         self.assertEqual(imp["abschluss"]["firma"], "Klein Energieberatung UG (haftungsbeschränkt)")
 
-        status, auftrag = self.anfrage("POST", "/api/auftraege", {"begriffe": "Energieberatung\nEnergieberater", "max_seiten": 1})
+        status, auftrag = self.anfrage("POST", "/api/auftraege", {"begriffe": "Energieberatung\nEnergieberater", "max_seiten": 1, "quelle": "bundesanzeiger"})
         self.assertEqual(status, 201)
         self.assertEqual(auftrag["begriffe"], ["Energieberatung", "Energieberater"])
         aid = auftrag["id"]
@@ -389,6 +389,17 @@ class ServerTest(unittest.TestCase):
 
         status, antwort = self.anfrage("POST", "/api/auftraege", {"begriffe": []})
         self.assertEqual(status, 400)
+        # Automatik: ohne Schlüssel und ohne Browser gibt es eine klare Meldung statt eines Auftrags
+        with unittest.mock.patch.dict(os.environ, {"OPENREGISTER_API_KEY": "", "BILANZ_OPENREGISTER_KEY": ""}), \
+                unittest.mock.patch("bilanzen.unternehmensregister.verfuegbar", return_value=(False, "playwright fehlt")):
+            status, antwort = self.anfrage("POST", "/api/auftraege", {"begriffe": ["x"]})
+            self.assertEqual(status, 400)
+            self.assertIn("OPENREGISTER_API_KEY", antwort["fehler"])
+            status, info = self.anfrage("GET", "/api/info")
+            self.assertEqual(info["quelle_standard"], "")
+        with unittest.mock.patch.dict(os.environ, {"OPENREGISTER_API_KEY": "abc"}):
+            status, info = self.anfrage("GET", "/api/info")
+            self.assertEqual(info["quelle_standard"], "openregister")
         status, antwort = self.anfrage("GET", "/api/auftraege/gibtsnicht")
         self.assertEqual(status, 404)
 
