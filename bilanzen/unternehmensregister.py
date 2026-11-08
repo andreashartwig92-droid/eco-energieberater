@@ -76,7 +76,7 @@ JS_TREFFER = r"""
   const formular = !!main.querySelector('input[name="companyName"]') && ergebnis.length === 0;
   return { treffer: ergebnis, anzahl: zaehler ? parseInt(zaehler[1].replace(/\./g, ''), 10) : ergebnis.length,
            weiter: !!(weiter && !weiter.hasAttribute('disabled') && weiter.getAttribute('aria-disabled') !== 'true'),
-           seite: isNaN(aktivNr) ? null : aktivNr, zuViele, gesperrt, formular, url: location.href };
+           seite: isNaN(aktivNr) ? null : aktivNr, zuViele, gesperrt, formular, leer: sichtbar.trim().length < 40, url: location.href };
 }
 """
 
@@ -251,8 +251,17 @@ class BrowserClient:
         return self._trefferseite(erwartet=seite.nummer + 1)
 
     def _trefferseite(self, erwartet):
-        self._seite.wait_for_timeout(500)
-        daten = self._seite.evaluate(JS_TREFFER)
+        # Die Trefferliste entsteht erst im Browser: warten, bis Inhalt da ist (höchstens das Zeitlimit)
+        ende = time.monotonic() + self.zeitlimit_ms / 1000
+        while True:
+            self._seite.wait_for_timeout(500)
+            daten = self._seite.evaluate(JS_TREFFER)
+            if daten["treffer"] or daten.get("zuViele") or daten.get("gesperrt") or daten.get("formular") or not daten.get("leer"):
+                break
+            if time.monotonic() > ende:
+                raise UnternehmensregisterFehler("Die Trefferliste wurde nicht geladen (Seite bleibt leer). Meist sind die Skripte des "
+                                                 "Unternehmensregisters im Browser nicht angekommen (Netz/Proxy); `python -m bilanzen diagnose` "
+                                                 "legt Bildschirmfotos ab.")
         if daten.get("gesperrt"):
             raise UnternehmensregisterFehler("Das Unternehmensregister meldet eine Sperre oder abgelaufene Sitzung. Bitte später erneut versuchen "
                                              "und BILANZ_PAUSE erhöhen.")
