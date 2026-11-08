@@ -6,7 +6,8 @@ Routen (JSON, Anmeldung über Header `Authorization: Bearer <BILANZ_PASSWORT>`, 
   GET  /api/info                      Name, Passwortpflicht, Statistik, Suchbegriffe
   GET  /api/auftraege                 alle Aufträge
   POST /api/auftraege                 {begriffe: [...], max_seiten, nur_neue, nur_liste, quelle} → neuer Auftrag
-                                      quelle: "bundesanzeiger" (Standard) oder "unternehmensregister" (Browser nötig)
+                                      quelle: "bundesanzeiger" (Standard), "unternehmensregister" (Browser nötig) oder
+                                      "openregister" (API-Schlüssel nötig; optionen: {suchfeld: zweck|name|branche, nur_aktive, ort})
   GET  /api/auftraege/<id>            Zustand (inkl. Captcha-Bild als data-URL, wenn offen)
   POST /api/auftraege/<id>/captcha    {loesung}
   POST /api/auftraege/<id>/abbrechen
@@ -58,10 +59,14 @@ class Anwendung:
         self.verwalter = verwalter or Verwalter(self.speicher, pause=konfig.pause, chromium_pfad=konfig.chromium)
 
     def quellen(self):
+        from .openregister import verfuegbar as or_verfuegbar
         from .unternehmensregister import verfuegbar
         ok, grund = verfuegbar(self.konfig.chromium)
-        return {"bundesanzeiger": {"bereit": True, "hinweis": "Veröffentlichungen bis Geschäftsjahr 2021 (Nachzügler später)"},
-                "unternehmensregister": {"bereit": ok, "hinweis": grund or "Offenlegungen ab Geschäftsjahr 2022, gesteuerter Browser"}}
+        or_ok, or_grund = or_verfuegbar()
+        return {"openregister": {"bereit": or_ok, "hinweis": or_grund or "Schnittstelle: alle Jahre je Firma, Suche nach Unternehmensgegenstand, "
+                                                                     "ohne Captcha; 10 Punkte je Suchseite und je Firma"},
+                "bundesanzeiger": {"bereit": True, "hinweis": "Veröffentlichungen bis Geschäftsjahr 2021 (Nachzügler später), Captcha von Hand"},
+                "unternehmensregister": {"bereit": ok, "hinweis": grund or "Offenlegungen ab Geschäftsjahr 2022, gesteuerter Browser, Captcha von Hand"}}
 
     def angemeldet(self, header_wert):
         if not self.konfig.passwort_noetig:
@@ -232,7 +237,8 @@ class Handler(BaseHTTPRequestHandler):
                 a = self.app.verwalter.anlegen(
                     [str(b) for b in begriffe], max_seiten=daten.get("max_seiten", self.app.konfig.max_seiten_standard),
                     nur_neue=daten.get("nur_neue", True), nur_liste=daten.get("nur_liste", False),
-                    quelle=str(daten.get("quelle") or "bundesanzeiger"))
+                    quelle=str(daten.get("quelle") or "bundesanzeiger"),
+                    optionen=daten.get("optionen") if isinstance(daten.get("optionen"), dict) else None)
                 return self._json(HTTPStatus.CREATED, a.als_dict())
             m = re.fullmatch(r"/api/auftraege/([0-9a-f]+)/captcha", pfad)
             if m:

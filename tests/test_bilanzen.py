@@ -630,3 +630,125 @@ class ServerVorreiterCsv(ServerTest):
         self.assertEqual(v["rangliste"][0]["rang"], 1)
         status, fehler = self.anfrage("POST", "/api/import-csv", {"dateiname": "x.csv", "text": "a;b\n1;2\n"})
         self.assertEqual(status, 400)
+
+
+# --- OpenRegister (Schnittstelle) -----------------------------------------------------------------
+
+from bilanzen import openregister
+
+
+class FakeOpenRegister(openregister.Client):
+    """Beantwortet die API-Aufrufe aus den Fixtures und protokolliert sie."""
+
+    def __init__(self, **kw):
+        super().__init__(api_key="test-schluessel", pause=0, **kw)
+        self.aufrufe = []
+
+    def _anfrage(self, methode, pfad, daten=None, roh=False, basis=None):
+        self.aufrufe.append((methode, pfad, daten, basis))
+        self.anfragen += 1
+        if roh:
+            return b"<html><body><div class=\"publication_container\"><h1>Original</h1></div></body></html>"
+        if pfad == "/v1/search/company":
+            antwort = json.loads(lies("openregister_suche.json"))
+            seite = (daten.get("pagination") or {}).get("page", 1)
+            if seite > 1:
+                antwort["results"] = []
+            antwort["pagination"]["page"] = seite
+            return antwort
+        if pfad.endswith("/financials"):
+            if "99001" in pfad:
+                return {"reports": [], "indicators": [], "merged": None, "estimates": {"revenue": None, "ebitda": None, "employees": None}}
+            return json.loads(lies("openregister_finanzen.json"))
+        raise AssertionError(pfad)
+
+
+class OpenRegisterTest(unittest.TestCase):
+    def test_abschluesse_aus_antwort(self):
+        liste = openregister.abschluesse_aus_antwort(json.loads(lies("openregister_finanzen.json")), firma="Muster Energieberatung GmbH")
+        self.assertEqual([a.gj_bis for a, _, _ in liste], ["2023-12-31", "2022-12-31"])
+        a23 = liste[0][0]
+        self.assertEqual(a23.posten["bilanzsumme"], [750000.0, 667260.45])
+        self.assertEqual(a23.posten["umsatz"], [1400000.0, None])  # Vorjahr ohne GuV
+        self.assertEqual(a23.posten["eigenkapital"], [380000.0, 312480.12])
+        self.assertEqual(a23.posten["personalaufwand"], [-800000.0, None])
+        self.assertEqual(a23.posten["jahresueberschuss"][0], 67519.88)
+        self.assertEqual(a23.mitarbeiter, 12)
+        self.assertTrue(a23.guv_vorhanden)
+        self.assertEqual(a23.gj_von, "2023-01-01")
+        self.assertEqual(a23.rechtsform, "GmbH")
+        self.assertEqual(liste[0][2], "https://files.example.test/reports/2023.html")
+        a22 = liste[1][0]
+        self.assertFalse(a22.guv_vorhanden)
+        self.assertTrue(any("schätzt den Umsatz" in h for h in a22.hinweise))
+        k = kennzahlen.berechne(a23)
+        self.assertAlmostEqual(k["umsatzrendite"], 67519.88 / 1400000.0)
+        self.assertAlmostEqual(k["eigenkapitalquote"], 380000.0 / 750000.0)
+        self.assertAlmostEqual(k["wachstum_bilanzsumme"], 750000.0 / 667260.45 - 1)
+
+    def test_client_suche_und_finanzen(self):
+        c = FakeOpenRegister(suchfeld="zweck", ort="Hamburg, Kiel")
+        seite = c.suche("Energieberatung, Energieberater")
+        self.assertEqual(len(seite.treffer), 2)
+        self.assertEqual(seite.anzahl_treffer, 51)
+        self.assertTrue(seite.naechste_url)
+        self.assertEqual(seite.treffer[0].link, "DE-HRB-F1103-267645")
+        self.assertEqual(seite.treffer[0].quelle, "openregister")
+        self.assertTrue(seite.treffer[0].ist_jahresabschluss)
+        methode, pfad, daten, _ = c.aufrufe[0]
+        self.assertEqual((methode, pfad), ("POST", "/v1/search/company"))
+        self.assertIn({"field": "purpose", "keywords": ["Energieberatung", "Energieberater"]}, daten["filters"])
+        self.assertIn({"field": "status", "value": "active"}, daten["filters"])
+        self.assertIn({"field": "city", "values": ["Hamburg", "Kiel"]}, daten["filters"])
+        seite2 = c.naechste_seite(seite)
+        self.assertEqual(seite2.nummer, 2)
+        self.assertEqual(seite2.treffer, [])
+        self.assertEqual(seite2.naechste_url, "")
+        liste = c.abschluesse(seite.treffer[0])
+        self.assertEqual(len(liste), 2)
+        self.assertIn("publication_container", liste[0][1])  # Originaldokument für das jüngste Jahr
+        self.assertEqual(liste[1][1], "")
+        self.assertEqual(c.kontingent.punkte, 2 * 10 + 10)
+        self.assertEqual(FakeOpenRegister(suchfeld="name").suche("Muster") and FakeOpenRegister(suchfeld="name")._filter("Muster")["query"], {"value": "Muster"})
+        self.assertEqual(FakeOpenRegister(suchfeld="branche")._filter("71.12, 74.90")["filters"][0], {"field": "industry_codes", "values": ["71.12", "74.90"]})
+
+    def test_verwalter_mit_openregister(self):
+        s = Speicher(":memory:")
+        fake = FakeOpenRegister()
+        v = Verwalter(s, client_fabriken={"openregister": lambda optionen=None: fake, "bundesanzeiger": lambda: FakeClient()})
+        try:
+            with unittest.mock.patch.dict(os.environ, {"OPENREGISTER_API_KEY": "test"}):
+                a = v.anlegen(["Energieberatung"], max_seiten=1, quelle="openregister", optionen={"suchfeld": "zweck"})
+            self.assertTrue(warte_bis(lambda: a.zustand == "fertig"))
+            self.assertEqual(a.geladen, 2)       # zwei Jahre der GmbH
+            self.assertEqual(a.uebersprungen, 1)  # UG ohne veröffentlichte Finanzdaten
+            self.assertEqual(a.fehler, 0)
+            self.assertIn("OpenRegister-Punkte", a.meldung)
+            firmen = s.firmen("Energieberatung")
+            self.assertEqual(len(firmen), 2)
+            gmbh = next(f for f in firmen if f["name"].startswith("Muster"))
+            self.assertEqual(gmbh["anzahl_abschluesse"], 2)
+            self.assertEqual(gmbh["quelle"], "openregister")
+            self.assertEqual(gmbh["gj_bis"], "2023-12-31")
+            self.assertEqual([x["gj_bis"] for x in gmbh["verlauf"]], ["2022-12-31", "2023-12-31"])
+            detail = s.firma(gmbh["id"])
+            self.assertTrue(detail["abschluesse"][0]["roh_vorhanden"])
+            # zweiter Lauf: Firma bereits aus dieser Quelle vorhanden → kein weiterer Punkteverbrauch
+            with unittest.mock.patch.dict(os.environ, {"OPENREGISTER_API_KEY": "test"}):
+                b = v.anlegen(["Energieberatung"], max_seiten=1, quelle="openregister")
+            self.assertTrue(warte_bis(lambda: b.zustand == "fertig"))
+            self.assertEqual((b.geladen, b.uebersprungen), (0, 2))
+            with unittest.mock.patch.dict(os.environ, {"OPENREGISTER_API_KEY": ""}):
+                with self.assertRaises(ValueError):
+                    v.anlegen(["x"], quelle="openregister")
+        finally:
+            v.stoppen()
+            s.schliessen()
+
+    def test_verfuegbar(self):
+        with unittest.mock.patch.dict(os.environ, {"OPENREGISTER_API_KEY": "", "BILANZ_OPENREGISTER_KEY": ""}):
+            ok, grund = openregister.verfuegbar()
+            self.assertFalse(ok)
+            self.assertIn("openregister.de/keys", grund)
+        with unittest.mock.patch.dict(os.environ, {"OPENREGISTER_API_KEY": "abc"}):
+            self.assertEqual(openregister.verfuegbar(), (True, ""))

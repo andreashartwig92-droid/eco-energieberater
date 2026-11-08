@@ -109,6 +109,12 @@ class Speicher:
                                  (name.strip(), ort.strip(), gj_bis)).fetchone()
             return z is not None
 
+    def hat_abschluss_quelle(self, name, ort, quelle):
+        with self._sperre:
+            z = self._db.execute("SELECT a.id FROM abschluesse a JOIN firmen f ON f.id = a.firma_id WHERE f.name = ? AND f.ort = ? AND a.quelle = ? LIMIT 1",
+                                 (name.strip(), ort.strip(), quelle)).fetchone()
+            return z is not None
+
     # --- Abschlüsse ----------------------------------------------------------
 
     def abschluss_speichern(self, firma_id, abschluss, roh_html="", titel="", veroeffentlicht="", quelle="bundesanzeiger", quelle_url=""):

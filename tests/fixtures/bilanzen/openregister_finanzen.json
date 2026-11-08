@@ -1,0 +1,62 @@
+{
+  "reports": [
+    {
+      "report_id": "a1000000-0000-4000-8000-000000002023",
+      "consolidated": false,
+      "aktiva": {"rows": [{"name": "fixed_assets", "formatted_name": "Anlagevermögen", "current_value": 15000000, "previous_value": 14235000, "children": []}]},
+      "passiva": {"rows": [{"name": "equity", "formatted_name": "Eigenkapital", "current_value": 38000000, "previous_value": 31248012, "children": []}]},
+      "guv": {"rows": [{"name": "revenue", "formatted_name": "Umsatzerlöse", "current_value": 140000000, "previous_value": 128450000, "children": []}]},
+      "report_start_date": "2023-01-01",
+      "report_end_date": "2023-12-31",
+      "published_at": "2024-11-02",
+      "sources": [{"html_url": "https://files.example.test/reports/2023.html?X-Amz-Signature=abc"}],
+      "activity_statements": [],
+      "auditor": null
+    },
+    {
+      "report_id": "a1000000-0000-4000-8000-000000002022",
+      "consolidated": false,
+      "aktiva": {"rows": []},
+      "passiva": {"rows": []},
+      "guv": null,
+      "report_start_date": "2022-01-01",
+      "report_end_date": "2022-12-31",
+      "published_at": "2023-10-12",
+      "sources": [{"html_url": "https://files.example.test/reports/2022.html?X-Amz-Signature=def"}],
+      "activity_statements": [],
+      "auditor": null
+    }
+  ],
+  "indicators": [
+    {
+      "date": "2023-12-31", "report_id": "a1000000-0000-4000-8000-000000002023", "short_year": false,
+      "balance_sheet_total": 75000000, "net_income": 6751988, "parent_net_income": null, "income_before_tax": 9900000, "income_after_tax": 6751988,
+      "ebit": 10400000, "ebitda": 13600000, "revenue": 140000000, "gross_profit": 118000000, "cash": 35000000, "employees": 12, "apprentices": null,
+      "equity": 38000000, "real_estate": null, "materials": 22000000, "pension_provisions": null, "salaries": 80000000, "taxes": 3148012, "other_taxes": 120000,
+      "commission_income": null, "commission_expense": null, "liabilities": 27000000, "capital_reserves": null, "active_accruals": 300000, "passive_accruals": null,
+      "fixed_assets": 15000000, "current_assets": 60000000, "receivables": 20000000, "trade_receivables": 18000000, "inventory": 1500000, "provisions": 10000000,
+      "bank_debt": 11000000, "trade_payables": 7000000, "tangible_assets": 14500000, "financial_assets": null, "securities": null, "retained_earnings": null,
+      "profit_carryforward": 28748012, "other_provisions": 10000000, "shareholder_liabilities": null, "operating_depreciation": 3200000, "financial_depreciation": null,
+      "other_operating_income": 1900000, "interest_income": null, "interest_expense": 500000, "other_liabilities": 9000000, "financial_debt": 11000000,
+      "intangible_assets": 500000, "other_operating_expenses": 21000000, "affiliated_liabilities": null
+    },
+    {
+      "date": "2022-12-31", "report_id": "a1000000-0000-4000-8000-000000002022", "short_year": false,
+      "balance_sheet_total": 66726045, "net_income": null, "parent_net_income": null, "income_before_tax": null, "income_after_tax": null,
+      "ebit": null, "ebitda": null, "revenue": null, "gross_profit": null, "cash": 32100000, "employees": 11, "apprentices": null,
+      "equity": 31248012, "real_estate": null, "materials": null, "pension_provisions": null, "salaries": null, "taxes": null, "other_taxes": null,
+      "commission_income": null, "commission_expense": null, "liabilities": 25638033, "capital_reserves": null, "active_accruals": 315000, "passive_accruals": null,
+      "fixed_assets": 14235000, "current_assets": 52176045, "receivables": 18836045, "trade_receivables": null, "inventory": 1240000, "provisions": 9840000,
+      "bank_debt": 12000000, "trade_payables": 6138033, "tangible_assets": 13815000, "financial_assets": null, "securities": null, "retained_earnings": null,
+      "profit_carryforward": 21623000, "other_provisions": 9840000, "shareholder_liabilities": null, "operating_depreciation": null, "financial_depreciation": null,
+      "other_operating_income": null, "interest_income": null, "interest_expense": null, "other_liabilities": 7500000, "financial_debt": 12000000,
+      "intangible_assets": 420000, "other_operating_expenses": null, "affiliated_liabilities": null
+    }
+  ],
+  "merged": null,
+  "estimates": {
+    "revenue": {"value": 130000000, "min": 90000000, "max": 190000000, "confidence": "high", "date": "2022-12-31"},
+    "ebitda": null,
+    "employees": null
+  }
+}

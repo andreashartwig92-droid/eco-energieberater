@@ -195,7 +195,9 @@ und verdichtet alles zu einem Branchenbild mit Urteil („attraktiv“, „bedin
 Nur Python-Standardbibliothek, Ablage in SQLite.
 
 ```bash
+export OPENREGISTER_API_KEY=...                      # empfohlene Quelle, Schlüssel von openregister.de/keys
 python3 -m bilanzen                                  # Oberfläche auf http://127.0.0.1:8081
+python3 -m bilanzen suche "Energieberatung" --quelle openregister --seiten 2   # 100 Firmen mit allen Jahren, ohne Captcha
 python3 -m bilanzen suche "Energieberatung" --seiten 3   # dasselbe im Terminal (Captcha als Bilddatei)
 python3 -m bilanzen import abschluss.html --suchbegriff Energieberatung   # Datei aus dem Unternehmensregister
 python3 -m bilanzen bericht --suchbegriff Energieberatung                 # Branchenbild im Terminal
@@ -206,6 +208,7 @@ python3 -m bilanzen export --suchbegriff Energieberatung > bilanzen.csv
 
 ```
 bilanzen/
+  openregister.py    Quelle OpenRegister: Firmensuche und Finanzdaten aller Jahre über die Schnittstelle (ohne Captcha)
   bundesanzeiger.py  Suche, Trefferlisten, Seitenwechsel, Dokumentabruf, Captcha-Erkennung (ohne automatisches Lösen)
   parser.py          Bilanz-/GuV-Posten aus dem HTML (Tabellen und Fließtext, EUR/TEUR, Fehlbeträge, Größenklasse, Mitarbeiter)
   kennzahlen.py      EK-Quote, Renditen, Liquidität, Wachstum, Score 0–100 mit Ampel und Begründung je Unternehmen
@@ -243,8 +246,19 @@ je Firma (Bundesanzeiger bis 2021 plus Unternehmensregister ab 2022 ergibt die Z
 
 ### Datenbank aufbauen
 
-Drei Wege füllen dieselbe SQLite-Datenbank, Branchenbild und Vorreiter-Ranking rechnen über alles zusammen:
+Vier Wege füllen dieselbe SQLite-Datenbank, Branchenbild und Vorreiter-Ranking rechnen über alles zusammen:
 
+0. **OpenRegister-Schnittstelle (empfohlen, ohne Captcha):** [OpenRegister](https://openregister.de) ist ein Datenanbieter,
+   der die Bundesanzeiger-Jahresabschlüsse bereits strukturiert bereithält und per dokumentierter API liefert
+   ([docs.openregister.de](https://docs.openregister.de)): Firmensuche nach Unternehmensgegenstand („Energieberatung“ im
+   Gesellschaftszweck, das trifft die Branche besser als der Name), Firmenname, Ort oder WZ-Branchencode; je Firma Bilanz,
+   GuV und Kennzahlen **aller verfügbaren Geschäftsjahre** in einem Abruf, dazu das Originaldokument. Kostenloser
+   Schlüssel unter [openregister.de/keys](https://openregister.de/keys) mit 500 Punkten im Monat (eine Suchseite mit bis zu
+   50 Firmen kostet 10 Punkte, die Finanzdaten einer Firma 10 Punkte, also rund 45 Firmen frei je Monat); darüber 1 Cent je
+   Punkt, 1.000 Firmen entsprechen etwa 100 €. Schlüssel als `OPENREGISTER_API_KEY` setzen, in der Oberfläche „OpenRegister“
+   als Quelle wählen oder `python3 -m bilanzen suche "Energieberatung" --quelle openregister`. Bereits geladene Firmen werden
+   nicht erneut abgerufen (keine doppelten Punkte). Fehlt bei kleinen Gesellschaften die GuV, liefert OpenRegister eine
+   modellierte Umsatzschätzung; sie wird als Hinweis angezeigt, fließt aber nicht in die Kennzahlen ein.
 1. **Abruf aus den Portalen** (Bundesanzeiger, Unternehmensregister): Aufträge laufen im Hintergrund in einer Sitzung;
    eine Sicherheitsabfrage erscheint nur, wenn das Portal sie verlangt. Die Oberfläche meldet sie mit Ton,
    Browser-Benachrichtigung und im Fenstertitel, sodass Sie nebenbei arbeiten können. **Das Werkzeug löst Captchas
@@ -318,6 +332,7 @@ systemd: `deploy/eco-bilanzen.service`.
 | `BILANZ_MAX_SEITEN` | `5` | Vorgabe für Trefferseiten je Suchbegriff in der Oberfläche (0 = alle) |
 | `BILANZ_VERTRAUE_PROXY` | `0` | `1` hinter nginx/Caddy (echte Client-IP im Protokoll) |
 | `BILANZ_CHROMIUM` | leer | Pfad zu einem Chromium für das Unternehmensregister (leer = von `playwright install` installiertes) |
+| `OPENREGISTER_API_KEY` | leer | Schlüssel für die OpenRegister-Schnittstelle (Quelle „OpenRegister“) |
 
 Tests: `python3 -m unittest tests.test_bilanzen` (laufen ohne Netz; Trefferliste und Captcha-Seite liegen als
 Fixtures in `tests/fixtures/bilanzen/`; der Browser-Test wird übersprungen, wenn Playwright oder Chromium fehlen).

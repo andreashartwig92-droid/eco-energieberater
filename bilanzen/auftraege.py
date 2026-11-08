@@ -16,8 +16,8 @@ from dataclasses import dataclass, field
 
 from .bundesanzeiger import BundesanzeigerFehler, CaptchaNoetig, Client, geschaeftsjahr_aus_titel
 
-QUELLEN = ("bundesanzeiger", "unternehmensregister")
-QUELLEN_NAMEN = {"bundesanzeiger": "Bundesanzeiger", "unternehmensregister": "Unternehmensregister"}
+QUELLEN = ("bundesanzeiger", "unternehmensregister", "openregister")
+QUELLEN_NAMEN = {"bundesanzeiger": "Bundesanzeiger", "unternehmensregister": "Unternehmensregister", "openregister": "OpenRegister"}
 
 
 class QuellenFehler(Exception):
@@ -31,6 +31,8 @@ def _quellenfehler():
         typen.append(UnternehmensregisterFehler)
     except ImportError:  # pragma: no cover
         pass
+    from .openregister import OpenRegisterFehler
+    typen.append(OpenRegisterFehler)
     return tuple(typen)
 
 
@@ -48,6 +50,7 @@ class Auftrag:
     nur_neue: bool = True
     nur_liste: bool = False  # nur Treffer zählen/anzeigen, keine Dokumente laden
     quelle: str = "bundesanzeiger"
+    optionen: dict = field(default_factory=dict)  # quellenspezifisch, z. B. OpenRegister: suchfeld, nur_aktive, ort
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:10])
     zustand: str = "wartet"
     erstellt: float = field(default_factory=time.time)
@@ -76,7 +79,7 @@ class Auftrag:
     def als_dict(self):
         d = {
             "id": self.id, "begriffe": self.begriffe, "max_seiten": self.max_seiten, "nur_neue": self.nur_neue, "nur_liste": self.nur_liste,
-            "quelle": self.quelle,
+            "quelle": self.quelle, "optionen": self.optionen,
             "zustand": self.zustand, "erstellt": self.erstellt, "begonnen": self.begonnen, "beendet": self.beendet,
             "aktueller_begriff": self.aktueller_begriff, "seiten_gelesen": self.seiten_gelesen, "treffer_gesamt": self.treffer_gesamt,
             "treffer_gesehen": self.treffer_gesehen, "geladen": self.geladen, "uebersprungen": self.uebersprungen, "fehler": self.fehler,
@@ -86,6 +89,14 @@ class Auftrag:
         if self.zustand == "captcha" and self.captcha is not None:
             d["captcha_bild"] = f"data:{self.captcha.bild_typ};base64," + base64.b64encode(self.captcha.bild).decode("ascii")
         return d
+
+
+def _nimmt_optionen(fabrik):
+    import inspect
+    try:
+        return len(inspect.signature(fabrik).parameters) >= 1
+    except (TypeError, ValueError):
+        return False
 
 
 class Verwalter:
@@ -99,6 +110,13 @@ class Verwalter:
                 from .unternehmensregister import BrowserClient
                 return BrowserClient(pause=pause, chromium_pfad=chromium_pfad)
             self.client_fabriken["unternehmensregister"] = _ureg
+        if "openregister" not in self.client_fabriken:
+            def _openregister(optionen=None):
+                from .openregister import Client as OpenRegisterClient
+                o = optionen or {}
+                return OpenRegisterClient(pause=max(0.5, pause / 4), suchfeld=o.get("suchfeld") or "zweck",
+                                          nur_aktive=o.get("nur_aktive", True), ort=o.get("ort") or "", mit_dokument=o.get("mit_dokument", True))
+            self.client_fabriken["openregister"] = _openregister
         self.auftraege = {}
         self._reihe = deque()
         self._sperre = threading.Lock()
@@ -113,7 +131,7 @@ class Verwalter:
 
     # --- Schnittstelle ---------------------------------------------------------
 
-    def anlegen(self, begriffe, max_seiten=5, nur_neue=True, nur_liste=False, quelle="bundesanzeiger"):
+    def anlegen(self, begriffe, max_seiten=5, nur_neue=True, nur_liste=False, quelle="bundesanzeiger", optionen=None):
         begriffe = [b.strip() for b in begriffe if b and b.strip()]
         if not begriffe:
             raise ValueError("Mindestens ein Suchbegriff ist nötig.")
@@ -124,7 +142,13 @@ class Verwalter:
             ok, grund = verfuegbar()
             if not ok:
                 raise ValueError(f"Unternehmensregister nicht nutzbar: {grund}")
-        a = Auftrag(begriffe=begriffe, max_seiten=max(0, int(max_seiten)), nur_neue=bool(nur_neue), nur_liste=bool(nur_liste), quelle=quelle)
+        if quelle == "openregister":
+            from .openregister import verfuegbar as or_verfuegbar
+            ok, grund = or_verfuegbar()
+            if not ok:
+                raise ValueError(f"OpenRegister nicht nutzbar: {grund}")
+        a = Auftrag(begriffe=begriffe, max_seiten=max(0, int(max_seiten)), nur_neue=bool(nur_neue), nur_liste=bool(nur_liste), quelle=quelle,
+                    optionen=dict(optionen or {}))
         with self._sperre:
             self.auftraege[a.id] = a
             self._reihe.append(a.id)
@@ -184,7 +208,8 @@ class Verwalter:
     def _ausfuehren(self, a):
         a.begonnen = time.time()
         try:
-            client = self.client_fabriken[a.quelle]()
+            fabrik = self.client_fabriken[a.quelle]
+            client = fabrik(a.optionen) if a.quelle == "openregister" and _nimmt_optionen(fabrik) else fabrik()
         except QUELLEN_FEHLER as e:
             a.zustand, a.meldung, a.beendet = "fehler", str(e), time.time()
             a.log(f"Quelle nicht nutzbar: {e}")
@@ -233,6 +258,9 @@ class Verwalter:
         a.beendet = time.time()
         a.meldung = (f"{a.geladen} Abschlüsse geladen, {a.uebersprungen} übersprungen, {a.fehler} Fehler, "
                      f"{client.anfragen} Anfragen an das Portal ({QUELLEN_NAMEN[a.quelle]}).")
+        kontingent = getattr(client, "kontingent", None)
+        if kontingent is not None:
+            a.meldung += f" Etwa {kontingent.punkte} OpenRegister-Punkte verbraucht."
         a.log("Fertig. " + a.meldung)
 
     def _treffer_bearbeiten(self, a, client, begriff, treffer):
@@ -247,6 +275,8 @@ class Verwalter:
             grund = "kein einsehbares Dokument (nur hinterlegt)" if not treffer.link else f"kein Jahresabschluss: {treffer.titel[:60]}"
             self.speicher.uebersprungen_merken(begriff, treffer, grund)
             return
+        if hasattr(client, "abschluesse"):
+            return self._abschluesse_uebernehmen(a, client, begriff, treffer)
         if a.nur_neue and self.speicher.hat_abschluss(treffer.name, treffer.ort, gj_bis):
             a.uebersprungen += 1
             # Firma trotzdem dem Suchbegriff zuordnen
@@ -269,6 +299,35 @@ class Verwalter:
         a.geladen += 1
         if abschluss.warnungen:
             a.log(f"  Hinweis: {'; '.join(abschluss.warnungen)}")
+
+    def _abschluesse_uebernehmen(self, a, client, begriff, treffer):
+        """Quellen, die fertige Abschlüsse liefern (OpenRegister): alle Jahre einer Firma in einem Abruf."""
+        if a.nur_neue and self.speicher.hat_abschluss_quelle(treffer.name, treffer.ort, a.quelle):
+            a.uebersprungen += 1
+            self.speicher.firma_anlegen(treffer.name, treffer.ort, suchbegriff=begriff)
+            return
+        a.zustand = "laedt"
+        a.log(f"Lade Finanzdaten: {treffer.name} ({treffer.ort})")
+        try:
+            liste = client.abschluesse(treffer)
+        except QUELLEN_FEHLER as e:
+            a.fehler += 1
+            a.log(f"Fehler: {e}")
+            self.speicher.uebersprungen_merken(begriff, treffer, f"Fehler: {e}")
+            if "Kontingent" in str(e) or "402" in str(e):
+                a.abbruch = True
+                a.meldung = str(e)
+            return
+        if not liste:
+            a.uebersprungen += 1
+            self.speicher.uebersprungen_merken(begriff, treffer, "keine veröffentlichten Finanzdaten")
+            self.speicher.firma_anlegen(treffer.name, treffer.ort, suchbegriff=begriff)
+            return
+        firma_id = self.speicher.firma_anlegen(treffer.name, treffer.ort, liste[0][0].rechtsform, begriff)
+        for abschluss, roh_html, quelle_url in liste:
+            self.speicher.abschluss_speichern(firma_id, abschluss, roh_html, abschluss.titel, "", a.quelle, quelle_url)
+        a.geladen += len(liste)
+        a.log(f"  {len(liste)} Geschäftsjahre übernommen ({liste[-1][0].gj_bis[:4]}–{liste[0][0].gj_bis[:4]})")
 
     def _dokument_mit_captcha(self, a, client, treffer):
         try:

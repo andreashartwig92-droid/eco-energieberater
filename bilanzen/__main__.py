@@ -1,6 +1,7 @@
 """Aufruf:
   python -m bilanzen                                   Webserver (Oberfläche) starten, http://127.0.0.1:8081
   python -m bilanzen suche "Energieberatung" [--seiten 3] [--nur-liste] [--quelle unternehmensregister]
+  python -m bilanzen suche "Energieberatung" --quelle openregister [--suchfeld zweck|name|branche] [--ort Hamburg]
   python -m bilanzen diagnose "Energieberatung" [--sichtbar]   Unternehmensregister Schritt für Schritt prüfen
   python -m bilanzen import datei.html [...] [--suchbegriff Energieberatung]
   python -m bilanzen bericht [--suchbegriff Energieberatung]
@@ -27,7 +28,10 @@ def main(argv=None):
     s.add_argument("--seiten", type=int, default=None, help="Trefferseiten je Begriff (0 = alle)")
     s.add_argument("--nur-liste", action="store_true", help="nur Treffer anzeigen, nichts laden")
     s.add_argument("--auch-vorhandene", action="store_true", help="bereits gespeicherte Abschlüsse erneut laden")
-    s.add_argument("--quelle", choices=("bundesanzeiger", "unternehmensregister"), default="bundesanzeiger")
+    s.add_argument("--quelle", choices=("bundesanzeiger", "unternehmensregister", "openregister"), default="bundesanzeiger")
+    s.add_argument("--suchfeld", choices=("zweck", "name", "branche"), default="zweck", help="OpenRegister: Unternehmensgegenstand, Firmenname oder WZ-Code")
+    s.add_argument("--ort", default="", help="OpenRegister: auf Orte eingrenzen (Komma-getrennt)")
+    s.add_argument("--auch-inaktive", action="store_true", help="OpenRegister: auch gelöschte/inaktive Firmen")
     d = sub.add_parser("diagnose", help="Unternehmensregister: Suche, Trefferliste und erste Veröffentlichung bis zum Captcha durchspielen")
     d.add_argument("begriff")
     d.add_argument("--sichtbar", action="store_true", help="Browserfenster anzeigen statt unsichtbar laufen zu lassen")
@@ -65,7 +69,8 @@ def main(argv=None):
     speicher = Speicher(konfig.datenbank)
     if args.befehl == "suche":
         return suche(konfig, speicher, args.begriffe, args.seiten if args.seiten is not None else konfig.max_seiten_standard,
-                     args.nur_liste, not args.auch_vorhandene, args.quelle)
+                     args.nur_liste, not args.auch_vorhandene, args.quelle,
+                     {"suchfeld": args.suchfeld, "ort": args.ort, "nur_aktive": not args.auch_inaktive})
     if args.befehl == "diagnose":
         from .unternehmensregister import diagnose
         ordner = Path(args.ordner) if args.ordner else Path(konfig.datenbank).parent / "diagnose"
@@ -98,7 +103,7 @@ def main(argv=None):
     return 0
 
 
-def suche(konfig, speicher, begriffe, seiten, nur_liste, nur_neue, quelle="bundesanzeiger"):
+def suche(konfig, speicher, begriffe, seiten, nur_liste, nur_neue, quelle="bundesanzeiger", optionen=None):
     """Wie der Hintergrundauftrag, aber im Vordergrund; Captcha-Bild wird als Datei abgelegt und abgefragt."""
     import time
 
@@ -106,7 +111,7 @@ def suche(konfig, speicher, begriffe, seiten, nur_liste, nur_neue, quelle="bunde
 
     verwalter = Verwalter(speicher, pause=konfig.pause, chromium_pfad=konfig.chromium or None)
     try:
-        a = verwalter.anlegen(begriffe, max_seiten=seiten, nur_neue=nur_neue, nur_liste=nur_liste, quelle=quelle)
+        a = verwalter.anlegen(begriffe, max_seiten=seiten, nur_neue=nur_neue, nur_liste=nur_liste, quelle=quelle, optionen=optionen)
     except ValueError as e:
         print(e, file=sys.stderr)
         verwalter.stoppen()

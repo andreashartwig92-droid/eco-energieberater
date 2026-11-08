@@ -1,0 +1,29 @@
+{
+  "results": [
+    {
+      "company_id": "DE-HRB-F1103-267645",
+      "name": "Muster Energieberatung GmbH",
+      "country": "DE",
+      "register_number": "267645",
+      "register_type": "HRB",
+      "register_court": "Berlin (Charlottenburg)",
+      "active": true,
+      "legal_form": "gmbh",
+      "address": {"street": "Musterstraße 1", "city": "Musterstadt", "postal_code": "10117", "country": "DE", "formatted_value": "Musterstraße 1, 10117 Musterstadt"},
+      "purpose": "Energieberatung für Wohn- und Nichtwohngebäude, Erstellung von Sanierungsfahrplänen"
+    },
+    {
+      "company_id": "DE-HRB-K1101-99001",
+      "name": "Klein Energieberatung UG (haftungsbeschränkt)",
+      "country": "DE",
+      "register_number": "99001",
+      "register_type": "HRB",
+      "register_court": "Kiel",
+      "active": true,
+      "legal_form": "ug",
+      "address": {"street": "Kleine Gasse 2", "city": "Kleinstadt", "postal_code": "24103", "country": "DE", "formatted_value": "Kleine Gasse 2, 24103 Kleinstadt"},
+      "purpose": "Energieberatung"
+    }
+  ],
+  "pagination": {"page": 1, "per_page": 50, "total_pages": 2, "total_results": 51}
+}

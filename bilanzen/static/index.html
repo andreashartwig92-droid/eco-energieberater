@@ -94,21 +94,34 @@
     <h2>Neue Suche</h2>
     <label for="quelle">Quelle</label>
     <select id="quelle">
-      <option value="bundesanzeiger">Bundesanzeiger – Veröffentlichungen bis Geschäftsjahr 2021</option>
+      <option value="openregister">OpenRegister-Schnittstelle – alle Jahre, ohne Captcha (API-Schlüssel)</option>
+      <option value="bundesanzeiger">Bundesanzeiger – Veröffentlichungen bis Geschäftsjahr 2021 (Captcha von Hand)</option>
       <option value="unternehmensregister">Unternehmensregister – Offenlegungen ab Geschäftsjahr 2022 (gesteuerter Browser)</option>
     </select>
     <div class="hinweis" id="quelle-hinweis"></div>
+    <div id="openregister-optionen">
+      <label for="or-suchfeld">Suchen in</label>
+      <select id="or-suchfeld">
+        <option value="zweck">Unternehmensgegenstand (Branche; mehrere Wörter mit Komma = oder)</option>
+        <option value="name">Firmenname</option>
+        <option value="branche">WZ-2025-Branchencode (z. B. 71.12)</option>
+      </select>
+      <label for="or-ort">Orte eingrenzen (optional, Komma-getrennt)</label>
+      <input type="text" id="or-ort" placeholder="Hamburg, Berlin">
+      <label><input type="checkbox" id="or-aktiv" checked> Nur aktive Firmen</label>
+    </div>
     <label for="begriffe">Suchbegriffe (eine Branche oder ein Firmenbestandteil je Zeile)</label>
     <textarea id="begriffe" placeholder="Energieberatung&#10;Energieberater&#10;Gebäudeenergieberatung"></textarea>
     <div class="zeile">
-      <div><label for="max-seiten">Trefferseiten je Begriff (20 Treffer/Seite, 0 = alle)</label><input type="number" id="max-seiten" min="0" value="5"></div>
+      <div><label for="max-seiten">Trefferseiten je Begriff (0 = alle) <span id="max-seiten-hinweis" class="hinweis"></span></label><input type="number" id="max-seiten" min="0" value="5"></div>
     </div>
     <label><input type="checkbox" id="nur-neue" checked> Bereits gespeicherte Abschlüsse überspringen</label>
     <label><input type="checkbox" id="nur-liste"> Nur Trefferliste anzeigen, keine Dokumente laden</label>
     <div class="zeile" style="margin-top:12px">
       <button class="primaer" id="start">Suche starten</button>
     </div>
-    <p class="hinweis">Beide Portale zeigen Jahresabschlüsse nur nach einer Sicherheitsabfrage (Captcha). Sie erscheint hier im Auftrag und
+    <p class="hinweis">Die OpenRegister-Schnittstelle liefert Bilanz, GuV und Kennzahlen aller Jahre je Firma ohne Sicherheitsabfrage
+      (Schlüssel: openregister.de/keys, 500 Punkte im Monat frei). Die beiden Portale zeigen Jahresabschlüsse nur nach einer Sicherheitsabfrage (Captcha). Sie erscheint hier im Auftrag und
       wird von Ihnen gelesen und eingetippt; der Auftrag läuft danach weiter. Zwischen den Anfragen wartet das Werkzeug einige Sekunden.</p>
     <div id="auftraege"></div>
   </section>
@@ -192,12 +205,15 @@
   let sortierung = { feld: 'score', richtung: -1 };
   let aktiveAuftraege = 0;
   let quellen = {};
+  let quellenGesetzt = false;
   function zeigeQuelle() {
     const q = quellen[$('#quelle').value]; const el = $('#quelle-hinweis');
     if (!q) { el.textContent = ''; return; }
     el.textContent = (q.bereit ? '' : 'Nicht verfügbar: ') + q.hinweis;
     el.style.color = q.bereit ? '' : 'var(--rot)';
     $('#start').disabled = !q.bereit;
+    $('#openregister-optionen').style.display = $('#quelle').value === 'openregister' ? '' : 'none';
+    $('#max-seiten-hinweis').textContent = $('#quelle').value === 'openregister' ? '50 Firmen je Seite, 10 Punkte je Seite und je Firma' : '20 Treffer je Seite';
   }
   $('#quelle').onchange = zeigeQuelle;
 
@@ -230,6 +246,7 @@
     $('#statistik').textContent = `${s.firmen} Unternehmen · ${s.abschluesse} Abschlüsse · Pause ${r.pause} s`;
     if (r.passwort_noetig && !passwort) zeigePasswort();
     quellen = r.quellen || {};
+    if (!quellenGesetzt) { quellenGesetzt = true; const erste = ['openregister', 'bundesanzeiger', 'unternehmensregister'].find(q => quellen[q] && quellen[q].bereit); if (erste) $('#quelle').value = erste; }
     zeigeQuelle();
     const sel = $('#filter-begriff'); const alt = sel.value;
     sel.innerHTML = '<option value="">Alle gespeicherten Unternehmen</option>' +
@@ -242,7 +259,8 @@
     const begriffe = $('#begriffe').value.split(/\n/).map(s => s.trim()).filter(Boolean);
     if (!begriffe.length) return alert('Bitte mindestens einen Suchbegriff eingeben.');
     try {
-      await api('/api/auftraege', { method: 'POST', body: JSON.stringify({ begriffe, max_seiten: Number($('#max-seiten').value), nur_neue: $('#nur-neue').checked, nur_liste: $('#nur-liste').checked, quelle: $('#quelle').value }) });
+      await api('/api/auftraege', { method: 'POST', body: JSON.stringify({ begriffe, max_seiten: Number($('#max-seiten').value), nur_neue: $('#nur-neue').checked, nur_liste: $('#nur-liste').checked, quelle: $('#quelle').value,
+        optionen: { suchfeld: $('#or-suchfeld').value, ort: $('#or-ort').value, nur_aktive: $('#or-aktiv').checked } }) });
       ladeAuftraege();
     } catch (e) { alert(e.message); }
   };
@@ -267,7 +285,7 @@
           a.treffer_liste.map(t => `<tr><td>${esc(t.name)}</td><td>${esc(t.ort)}</td><td>${esc(t.gj_bis)}</td><td>${esc(t.titel)}${t.einsehbar ? '' : ' <span class="marke">nur hinterlegt</span>'}</td><td>${t.vorhanden ? '✓' : ''}</td></tr>`).join('') + '</tbody></table></details>';
       }
       return `<div class="auftrag">
-        <div class="kopf"><div><strong>${a.begriffe.map(esc).join(', ')}</strong> <span class="marke">${a.quelle === 'unternehmensregister' ? 'Unternehmensregister' : 'Bundesanzeiger'}</span> <span class="zustand ${a.zustand}">${a.zustand}${a.aktueller_begriff && laeuft ? ' · ' + esc(a.aktueller_begriff) : ''}</span></div>
+        <div class="kopf"><div><strong>${a.begriffe.map(esc).join(', ')}</strong> <span class="marke">${a.quelle === 'unternehmensregister' ? 'Unternehmensregister' : a.quelle === 'openregister' ? 'OpenRegister' : 'Bundesanzeiger'}</span> <span class="zustand ${a.zustand}">${a.zustand}${a.aktueller_begriff && laeuft ? ' · ' + esc(a.aktueller_begriff) : ''}</span></div>
           ${laeuft ? `<button data-abbrechen="${a.id}">Abbrechen</button>` : ''}</div>
         <div class="fortschritt">${fortschritt}${a.meldung ? ' – ' + esc(a.meldung) : ''}</div>
         ${captcha}${liste}
@@ -368,7 +386,7 @@
     $('#firmen tbody').innerHTML = liste.map(f => { const k = f.kennzahlen || {}; const w = k.wachstum_umsatz ?? k.wachstum_bilanzsumme;
       return `<tr class="klick" data-id="${f.id}">
         <td><span class="ampel ${k.ampel || 'grau'}"></span>${k.datenlage === 'eingeschraenkt' ? '<span title="Datenlage eingeschränkt">◐</span>' : k.datenlage === 'gering' ? '<span title="Datenlage gering">○</span>' : ''}</td>
-        <td>${esc(f.name)}${f.quelle === 'import' ? ' <span class="marke">Import</span>' : f.quelle === 'unternehmensregister' ? ' <span class="marke">UReg</span>' : ''}${f.anzahl_abschluesse > 1 ? ` <span class="marke">${f.anzahl_abschluesse} Jahre</span>` : ''}</td>
+        <td>${esc(f.name)}${f.quelle === 'import' ? ' <span class="marke">Import</span>' : f.quelle === 'unternehmensregister' ? ' <span class="marke">UReg</span>' : f.quelle === 'openregister' ? ' <span class="marke">OpenRegister</span>' : f.quelle === 'csv' ? ' <span class="marke">CSV</span>' : ''}${f.anzahl_abschluesse > 1 ? ` <span class="marke">${f.anzahl_abschluesse} Jahre</span>` : ''}</td>
         <td>${esc(f.ort)}</td><td>${esc((f.gj_bis || '').slice(0, 4))}</td>
         <td class="zahl">${fmtGeld(k.bilanzsumme)}</td><td class="zahl">${fmtPct(k.eigenkapitalquote, 0)}</td>
         <td class="zahl">${fmtGeld(k.umsatz)}</td><td class="zahl">${fmtPct(k.umsatzrendite)}</td>
@@ -426,7 +444,7 @@
           <div><strong>Kennzahlen</strong>
             <table><tbody>${KENNZAHLEN.filter(([n]) => k[n] != null).map(([n, t, art]) => `<tr><td>${t}</td><td class="zahl">${fmt(k[n], art)}</td></tr>`).join('')}
               <tr><td>Mitarbeiter (Durchschnitt)</td><td class="zahl">${fmtZahl(k.mitarbeiter)}</td></tr></tbody></table>
-            <p class="hinweis">${esc(a.titel)}<br>Veröffentlicht: ${esc(a.veroeffentlicht || '–')} · geladen ${esc(a.geladen)}${a.quelle_url && a.quelle !== 'import' ? ` · <a href="${esc(a.quelle_url)}" target="_blank" rel="noopener">${a.quelle === 'unternehmensregister' ? 'Unternehmensregister' : 'Bundesanzeiger'}</a>` : ''}</p>
+            <p class="hinweis">${esc(a.titel)}<br>Veröffentlicht: ${esc(a.veroeffentlicht || '–')} · geladen ${esc(a.geladen)}${a.quelle_url && a.quelle !== 'import' ? ` · <a href="${esc(a.quelle_url)}" target="_blank" rel="noopener">${a.quelle === 'unternehmensregister' ? 'Unternehmensregister' : a.quelle === 'openregister' ? 'Quelle' : 'Bundesanzeiger'}</a>` : ''}</p>
           </div>
         </div>
         ${a.roh_vorhanden ? `<details><summary>Originaldokument anzeigen</summary><iframe sandbox="" src="/api/abschluesse/${a.id}/roh"></iframe></details>` : ''}`;

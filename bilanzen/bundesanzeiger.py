@@ -47,6 +47,8 @@ class Treffer:
 
     @property
     def ist_jahresabschluss(self):
+        if self.quelle == "openregister":  # Treffer sind Firmen mit Finanzdaten, link = company_id
+            return bool(self.link)
         t = self.titel.lower()
         return bool(self.link) and ("jahresabschluss" in t or "konzernabschluss" in t or "jahresfinanzbericht" in t)
 
