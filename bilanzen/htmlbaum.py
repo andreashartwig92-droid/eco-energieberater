@@ -1,4 +1,4 @@
-"""Ein sehr kleiner HTML-Baum (nur Standardbibliothek), ausreichend für die Seiten des Bundesanzeigers.
+"""Ein sehr kleiner HTML-Baum (nur Standardbibliothek), ausreichend für veröffentlichte Jahresabschlüsse.
 
     baum = parse(html)
     for zeile in baum.suche("div", klasse="row"):

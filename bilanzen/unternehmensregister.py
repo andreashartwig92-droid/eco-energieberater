@@ -1,24 +1,26 @@
-"""Zugriff auf das Unternehmensregister (www.unternehmensregister.de) über einen gesteuerten Browser.
+"""Direkter Zugriff auf das Unternehmensregister (www.unternehmensregister.de) über einen gesteuerten Browser.
 
-Das Unternehmensregister ist seit dem 1. August 2022 die Stelle, an der Jahresabschlüsse offengelegt werden
-(Geschäftsjahre ab 2022). Die Seite ist eine reine JavaScript-Anwendung: Suche und Trefferliste entstehen
-erst im Browser, Veröffentlichungen stehen hinter einer Sicherheitsabfrage (Captcha), und zu viele Abrufe
-führen zur Sperre der IP-Adresse. Dieses Modul bedient die Seite deshalb genauso wie ein Mensch: ein echter
-Chromium-Browser (Playwright) füllt das Suchformular aus, blättert, öffnet Veröffentlichungen und reicht
-das Captcha-Bild zur Lösung an die Oberfläche weiter. Es gibt keine automatische Captcha-Lösung.
+Seit dem 1. August 2022 werden Jahresabschlüsse im Unternehmensregister offengelegt; die Suche dort zeigt auch die
+älteren Veröffentlichungen aus dem Bundesanzeiger. Die Seite ist eine JavaScript-Anwendung, deshalb bedient ein
+Chromium-Browser (Playwright) sie wie ein Mensch:
 
-Voraussetzungen: `pip install -r requirements-bilanzen.txt` und ein Chromium (`playwright install chromium`
-oder `BILANZ_CHROMIUM=/usr/bin/chromium`). Ohne Playwright meldet `verfuegbar()` den Grund.
+1. Suchseite „Rechnungslegung / Finanzberichte“ öffnen, Cookie-Hinweis mit „Nur technisch notwendige Cookies
+   akzeptieren“ schließen, Firmenname eintragen, „Suchen“.
+2. Trefferliste lesen: je Firma ein Kopf (Name, Amtsgericht, HRB), darunter je Veröffentlichung eine Zeile mit
+   Titel („Jahresabschluss zum Geschäftsjahr vom … bis zum …“), Datum und Herkunft. Blättern über „Springe eine
+   Seite weiter“ bzw. den Parameter `from` der Ergebnisadresse.
+3. Veröffentlichung öffnen. Davor steht die Sicherheitsabfrage des Registers („Ich bin ein Mensch“). Sie wird nicht
+   automatisch bestätigt: Das Modul reicht ein Bild der Abfrage an die Oberfläche weiter (`CaptchaNoetig`,
+   art="bestaetigen"), ein Mensch bestätigt dort, erst dann klickt der Browser das Kästchen und lädt das Dokument.
 
-Die Schnittstelle entspricht `bundesanzeiger.Client` (suche, naechste_seite, dokument, captcha_loesen), so
-dass `auftraege.Verwalter` beide Quellen gleich behandelt.
+Voraussetzungen: `pip install -r requirements-bilanzen.txt` und ein Chromium (`playwright install chromium` oder
+`BILANZ_CHROMIUM=/usr/bin/chromium`). Ohne Playwright meldet `verfuegbar()` den Grund.
 
-Die Erkennung von Trefferliste, Veröffentlichung und Captcha arbeitet mit Texten und Rollen der Seite
-(„Sicherheitsabfrage“, „Springe eine Seite weiter“, Links mit „Jahresabschluss“), nicht mit festen
-CSS-Klassen, weil die Seite diese bei jedem Neubau ändert. `python -m bilanzen diagnose "Begriff"` legt
-Bildschirmfotos und Seitenquelltexte jedes Schritts ab, falls etwas nicht erkannt wird.
+`python -m bilanzen diagnose "Begriff"` legt Bildschirmfotos und Seitenquelltexte jedes Schritts ab, falls das
+Register seine Seite ändert und etwas nicht mehr erkannt wird.
 """
 
+import base64
 import logging
 import os
 import re
@@ -26,57 +28,75 @@ import time
 import urllib.parse
 from pathlib import Path
 
-from .bundesanzeiger import CaptchaNoetig, Dokument, Seite, Treffer
+from .modelle import CaptchaNoetig, Dokument, Seite, Treffer
 
 log = logging.getLogger("bilanzen.unternehmensregister")
 
 BASIS = "https://www.unternehmensregister.de"
 SUCHE_URL = BASIS + "/de/suche/rechnungslegung"
-USER_AGENT_ZUSATZ = "eco-bilanzradar/1.0"
 QUELLE = "unternehmensregister"
 
-# JavaScript, das im Browser die Trefferliste in eine einfache Liste verwandelt.
+# Liest die Trefferliste. Bevorzugt die data-testid-Attribute der Registerseite, sonst allgemeine Erkennung über Links.
 JS_TREFFER = r"""
 () => {
   const main = document.querySelector('main') || document.body;
-  const muster = /jahresabschluss|konzernabschluss|jahresfinanzbericht|rechnungslegung|offenlegung/i;
-  const datum = /\b(\d{2}\.\d{2}\.\d{4})\b/;
-  const ergebnis = [];
-  const gesehen = new Set();
-  const links = Array.from(main.querySelectorAll('a[href]')).filter(a => muster.test(a.textContent || ''));
-  for (const a of links) {
-    const titel = (a.textContent || '').replace(/\s+/g, ' ').trim();
-    // Nächster Vorfahr, der außer dem Link noch eine Überschrift oder einen hervorgehobenen Namen enthält
-    let block = a.parentElement; let name = ''; let tiefe = 0;
-    while (block && block !== main && tiefe < 8) {
-      const kandidaten = Array.from(block.querySelectorAll('h2,h3,h4,h5,strong,b,[class*="ompany"],[class*="name"],[class*="title"],[class*="headline"]'))
-        .map(e => (e.textContent || '').replace(/\s+/g, ' ').trim())
-        .filter(t => t && t !== titel && !muster.test(t) && t.length < 200);
-      if (kandidaten.length) { name = kandidaten[0]; break; }
-      block = block.parentElement; tiefe++;
-    }
-    if (!block || block === main) block = a.closest('li,article,tr,section,div') || a.parentElement;
-    const text = (block.textContent || '').replace(/\s+/g, ' ').trim();
-    const d = text.match(datum);
-    let ort = '';
-    const ortTreffer = text.match(/(?:Sitz|Ort|Niederlassung)\s*:?\s*([A-ZÄÖÜ][\wäöüß\-\. ]{2,60}?)(?=\s(?:Veröffentlich|Bereich|Jahres|Rechnungs|\d{2}\.\d{2}\.)|$)/);
-    if (ortTreffer) ort = ortTreffer[1].trim();
-    const schluessel = name + '|' + titel + '|' + a.href;
-    if (gesehen.has(schluessel)) continue;
-    gesehen.add(schluessel);
-    ergebnis.push({ name, ort, titel, href: a.href, datum: d ? d[1] : '' });
-  }
   const sichtbar = (main.innerText || '').replace(/\s+/g, ' ');
-  const zaehler = sichtbar.match(/(\d[\d\.]*)\s*(?:Treffer|Ergebnisse|Suchergebnisse)/);
-  const weiter = main.querySelector('[aria-label*="Seite weiter"], [title*="Seite weiter"], a[rel="next"], [aria-label*="ächste"]');
-  const aktiv = main.querySelector('[aria-label*="Aktuell ausgewählte Seite"], [aria-current="page"]');
+  const sauber = (t) => (t || '').replace(/­/g, '').replace(/\s+/g, ' ').trim();
+  const muster = /jahresabschluss|konzernabschluss|jahresfinanzbericht/i;
+  const ergebnis = [];
+  const tabelle = main.querySelector('[data-testid="searchResultTable"]');
+  if (tabelle) {
+    let kopf = { name: '', register: '' };
+    for (const tr of tabelle.querySelectorAll('tbody tr')) {
+      if (tr.getAttribute('data-testid') === 'companyHeader') {
+        const ps = Array.from(tr.querySelectorAll('th:first-child p')).map(p => sauber(p.textContent)).filter(Boolean);
+        kopf = { name: sauber((tr.querySelector('[data-testid="company-name"]') || {}).textContent),
+                 register: ps.filter(t => /^Amtsgericht|^(HRB|HRA|GnR|PR|VR)\b/.test(t)).join(' ') };
+        continue;
+      }
+      const firmaZelle = sauber((tr.querySelector('[data-testid="company"]') || {}).textContent);
+      const info = Array.from(tr.querySelectorAll('[data-testid="information"] span')).map(s => sauber(s.textContent));
+      for (const a of tr.querySelectorAll('[data-testid="label"] a[href]')) {
+        const block = a.parentElement;
+        const datum = sauber((block.querySelector('[data-cy="searchResult-date"]') || {}).textContent).replace(/^Datum:\s*/, '');
+        let name = kopf.name, ort = '';
+        const komma = firmaZelle.lastIndexOf(',');
+        if (komma > 0) { ort = firmaZelle.slice(komma + 1).trim(); if (!name) name = firmaZelle.slice(0, komma).trim(); }
+        else if (!name) name = firmaZelle;
+        ergebnis.push({ name, ort, titel: sauber(a.textContent), href: a.href, datum, register: kopf.register,
+                        bereich: info[0] || '', herkunft: info[1] || '' });
+      }
+    }
+  } else {
+    for (const a of main.querySelectorAll('a[href]')) {
+      if (!muster.test(a.textContent || '')) continue;
+      const block = a.closest('li,article,tr') || a.parentElement;
+      const text = sauber(block.textContent);
+      const name = sauber((block.querySelector('h2,h3,h4,strong,b') || {}).textContent);
+      const d = text.match(/\b(\d{2}\.\d{2}\.\d{4})\b(?!.*bis zum)/);
+      const o = text.match(/Sitz:?\s*([^·|]+?)(?=\s(?:Bereich|Veröffentlicht|Datum)|$)/);
+      ergebnis.push({ name, ort: o ? o[1].trim() : '', titel: sauber(a.textContent), href: a.href, datum: d ? d[1] : '',
+                      register: '', bereich: '', herkunft: '' });
+    }
+  }
+  const seitenText = sichtbar.match(/(\d[\d\.]*)\s+Seiten?\b/);
+  const zaehler = sichtbar.match(/(\d[\d\.]*)\s*(?:Treffer|Ergebnisse\b|Veröffentlichungen gefunden)/);
+  const weiter = main.querySelector('[aria-label="Springe eine Seite weiter"], [aria-label*="Seite weiter"], a[rel="next"]');
+  const weiterAktiv = !!(weiter && !weiter.disabled && !weiter.hasAttribute('disabled') && weiter.getAttribute('aria-disabled') !== 'true');
+  const aktiv = main.querySelector('[aria-label^="Aktuell ausgewählte Seite"], [aria-current="page"]');
   const aktivNr = aktiv ? parseInt((aktiv.getAttribute('aria-label') || aktiv.textContent || '').replace(/\D+/g, ''), 10) : NaN;
-  const zuViele = /Zu viele Suchergebnisse/i.test(sichtbar);
-  const gesperrt = /IP-Adresse gesperrt|Nutzersitzung abgelaufen/i.test((document.body.innerText || '').replace(/\s+/g, ' '));
-  const formular = !!main.querySelector('input[name="companyName"]') && ergebnis.length === 0;
-  return { treffer: ergebnis, anzahl: zaehler ? parseInt(zaehler[1].replace(/\./g, ''), 10) : ergebnis.length,
-           weiter: !!(weiter && !weiter.hasAttribute('disabled') && weiter.getAttribute('aria-disabled') !== 'true'),
-           seite: isNaN(aktivNr) ? null : aktivNr, zuViele, gesperrt, formular, leer: sichtbar.trim().length < 40, url: location.href };
+  return {
+    treffer: ergebnis,
+    seiten: seitenText ? parseInt(seitenText[1].replace(/\./g, ''), 10) : null,
+    anzahl: zaehler ? parseInt(zaehler[1].replace(/\./g, ''), 10) : null,
+    weiter: weiterAktiv, seite: isNaN(aktivNr) ? null : aktivNr,
+    zuViele: /Zu viele Suchergebnisse/i.test(sichtbar),
+    keine: /keine (Treffer|Ergebnisse|Veröffentlichungen) gefunden|Ihre Suche ergab keine/i.test(sichtbar),
+    gesperrt: /IP-Adresse gesperrt|Nutzersitzung abgelaufen/i.test((document.body.innerText || '').replace(/\s+/g, ' ')),
+    formular: !!main.querySelector('input[name="companyName"]') && !tabelle && ergebnis.length === 0 && !/Suchergebnis/i.test(sichtbar),
+    laedt: sichtbar.trim().length < 40,
+    url: location.href,
+  };
 }
 """
 
@@ -84,31 +104,35 @@ JS_SEITE_ART = r"""
 () => {
   const main = document.querySelector('main') || document.body;
   const text = (main.innerText || '').replace(/\s+/g, ' ');
-  const captchaText = /Sicherheitsabfrage/i.test(text) && /lösen Sie bitte|Zeichen|Sicherheitsabfrage/i.test(text);
-  let bild = null;
-  if (captchaText) {
-    const bilder = Array.from(main.querySelectorAll('img')).filter(i => i.naturalWidth > 60 && i.naturalHeight > 20 && !/logo/i.test(i.src + ' ' + (i.alt || '')));
-    bild = bilder.length ? bilder[0] : null;
-  }
-  const eingabe = captchaText ? main.querySelector('input[type="text"], input:not([type]), input[name*="aptcha"], input[name*="olution"], input[name*="ösung"]') : null;
+  const fox = main.querySelector('#fox-widget, [id^="fox-captcha"], .captcha_captcha__G6EkL, [class*="captcha_captcha"]');
+  const kaestchen = main.querySelector('#fox-captcha-checkbox, input[type="checkbox"][id*="aptcha"]');
+  const zeichenBild = Array.from(main.querySelectorAll('img')).find(i => /captcha|sicherheit/i.test((i.alt || '') + ' ' + i.src) && i.naturalWidth > 60);
+  const zeichenFeld = main.querySelector('input[name*="olution"], input[name*="aptcha"][type="text"], input[name*="ösung"]');
+  const captchaText = /Sicherheitsabfrage/i.test(text) && /lösen Sie bitte|Ich bin ein Mensch|Zeichen/i.test(text);
+  let art = '';
+  if (fox || kaestchen) art = 'bestaetigen';
+  else if (captchaText && (zeichenBild || zeichenFeld)) art = 'text';
+  const geloest = !!main.querySelector('[class*="captcha-solved"], [class*="solved-indicator"]:not([hidden])') && !!kaestchen && kaestchen.checked;
+  const fehlgeschlagen = /Captcha-Fehler|Prüfung fehlgeschlagen/i.test(text);
   const gesperrt = /IP-Adresse gesperrt/i.test(text);
   const fehler = /Ein Fehler ist aufgetreten|Fehlercode/i.test(text) && !/Jahresabschluss|Bilanz/i.test(text);
-  const dokument = /Bilanz|Aktiva|Passiva|Jahresabschluss|Gewinn- und Verlustrechnung|Anhang/i.test(text) && !captchaText;
+  const dokument = !art && /Bilanz|Aktiva|Passiva|Jahresabschluss|Gewinn- und Verlustrechnung|Anhang/i.test(text);
   const iframe = main.querySelector('iframe');
-  const dateien = Array.from(main.querySelectorAll('a[href]')).map(a => a.href).filter(h => /\.(xhtml|xml|html?)(\?|$)/i.test(h));
-  return { captcha: !!(captchaText && (bild || eingabe)), hatBild: !!bild, hatEingabe: !!eingabe, gesperrt, fehler, dokument,
-           iframe: iframe ? iframe.src : null, dateien, url: location.href, titel: document.title };
+  return { art, geloest, fehlgeschlagen, gesperrt, fehler, dokument, iframe: iframe ? iframe.src : null, url: location.href, titel: document.title };
 }
 """
 
-JS_CAPTCHA_BILD = r"""
+JS_DOKUMENT = r"""
 () => {
   const main = document.querySelector('main') || document.body;
-  const bilder = Array.from(main.querySelectorAll('img')).filter(i => i.naturalWidth > 60 && i.naturalHeight > 20 && !/logo/i.test(i.src + ' ' + (i.alt || '')));
-  if (!bilder.length) return null;
-  const i = bilder[0];
-  const c = document.createElement('canvas'); c.width = i.naturalWidth; c.height = i.naturalHeight;
-  try { c.getContext('2d').drawImage(i, 0, 0); return c.toDataURL('image/png'); } catch (e) { return null; }
+  // Bevorzugt den eigentlichen Veröffentlichungsteil; Suchformular, Navigation und Knöpfe weglassen
+  const kandidaten = Array.from(main.querySelectorAll('[class*="publication"], [class*="Publication"], [data-testid*="publication"], article, section'))
+    .filter(e => /Bilanz|Aktiva|Passiva|Gewinn- und Verlustrechnung|Jahresabschluss/i.test(e.innerText || ''))
+    .sort((a, b) => (a.innerText || '').length - (b.innerText || '').length);
+  const ziel = kandidaten.find(e => (e.querySelectorAll('table').length > 0 || (e.innerText || '').length > 400) && !e.querySelector('form[role="search"]')) || main;
+  const kopie = ziel.cloneNode(true);
+  kopie.querySelectorAll('form[role="search"], nav, button, script, style, [class*="breadcrumb"], [class*="searchForm"]').forEach(e => e.remove());
+  return kopie.innerHTML;
 }
 """
 
@@ -130,18 +154,20 @@ def verfuegbar(chromium_pfad=None):
 
 
 class BrowserClient:
-    """Bedient das Unternehmensregister mit Playwright. Gleiche Methoden wie bundesanzeiger.Client."""
+    """Bedient das Unternehmensregister mit Playwright: suche, naechste_seite, dokument, captcha_loesen."""
 
-    def __init__(self, pause=2.0, chromium_pfad=None, sichtbar=False, diagnose_ordner=None, zeitlimit=45):
+    def __init__(self, pause=2.0, chromium_pfad=None, sichtbar=False, diagnose_ordner=None, zeitlimit=45, captcha_zeitlimit=90):
         self.pause = pause
         self.chromium_pfad = chromium_pfad or os.environ.get("BILANZ_CHROMIUM") or os.environ.get("CHROMIUM") or None
         self.sichtbar = sichtbar
         self.zeitlimit_ms = int(zeitlimit * 1000)
+        self.captcha_zeitlimit = captcha_zeitlimit
         self.diagnose_ordner = Path(diagnose_ordner) if diagnose_ordner else None
         self.anfragen = 0
         self._schritt = 0
         self._pw = self._browser = self._kontext = self._seite = None
         self._letzte_anfrage = 0.0
+        self._cookies_erledigt = False
         self.suche_url = SUCHE_URL
 
     # --- Browser ------------------------------------------------------------
@@ -206,15 +232,20 @@ class BrowserClient:
         except Exception as e:  # noqa: BLE001
             log.warning("Diagnose %s nicht gespeichert: %s", basis, e)
 
-    def _cookie_banner(self):
-        for text in ("Alle akzeptieren", "Akzeptieren", "Nur notwendige", "Zustimmen", "Einverstanden"):
+    def _cookie_hinweis(self):
+        """Cookie-Dialog mit „Nur technisch notwendige Cookies akzeptieren“ schließen (nur einmal je Sitzung)."""
+        if self._cookies_erledigt:
+            return
+        for muster in (r"nur technisch notwendige", r"nur notwendige", r"ablehnen"):
             try:
-                knopf = self._seite.get_by_role("button", name=re.compile(text, re.I)).first
-                if knopf.is_visible(timeout=500):
+                knopf = self._seite.get_by_role("button", name=re.compile(muster, re.I)).first
+                if knopf.count() and knopf.is_visible(timeout=1500):
                     knopf.click()
-                    return
+                    self._seite.wait_for_timeout(800)  # das Formular wird danach neu gezeichnet
+                    break
             except Exception:  # noqa: BLE001
                 continue
+        self._cookies_erledigt = True
 
     # --- Suche --------------------------------------------------------------
 
@@ -223,58 +254,86 @@ class BrowserClient:
         self._warte()
         self._seite.goto(self.suche_url, wait_until="domcontentloaded")
         self._nach_aktion("suchformular")
-        self._cookie_banner()
+        self._cookie_hinweis()
         feld = self._seite.locator('input[name="companyName"]')
-        if feld.count() == 0:
-            self._pruefe_sperre()
-            raise UnternehmensregisterFehler("Suchformular nicht gefunden (Feld companyName) – Seite geändert oder nicht geladen; "
-                                             "`python -m bilanzen diagnose` hilft weiter.")
-        feld.first.fill(begriff)
-        knopf = self._seite.locator('button[name="search"], button[type="submit"]').first
-        knopf.click()
         try:
-            self._seite.wait_for_url(re.compile(r"/(suche|search)\?|ergebnis|result"), timeout=min(self.zeitlimit_ms, 15000))
-        except Exception:  # noqa: BLE001 – wird gleich an der Seite selbst erkannt
-            pass
+            feld.first.wait_for(state="visible", timeout=min(self.zeitlimit_ms, 20000))
+        except Exception:  # noqa: BLE001
+            self._pruefe_sperre()
+            raise UnternehmensregisterFehler("Suchformular nicht gefunden (Feld „Firmenname“) – Seite nicht geladen oder geändert; "
+                                             "`python -m bilanzen diagnose` legt Bildschirmfotos ab.")
+        for _ in range(3):  # nach dem Cookie-Dialog zeichnet die Seite das Formular neu und kann die Eingabe verlieren
+            feld.first.fill(begriff)
+            self._seite.wait_for_timeout(300)
+            if feld.first.input_value() == begriff:
+                break
+        start_url = self._seite.url
+        self._seite.locator('button[name="search"], form[role="search"] button[type="submit"]').first.click()
+        try:
+            self._seite.wait_for_function("u => location.href !== u", arg=start_url, timeout=min(self.zeitlimit_ms, 20000))
+        except Exception:  # noqa: BLE001
+            feld.first.press("Enter")
         self._nach_aktion("trefferliste")
+        self._begriff = begriff
         return self._trefferseite(erwartet=1)
 
     def naechste_seite(self, seite):
         if not seite.naechste_url:
             return None
         self._warte()
-        weiter = self._seite.locator('[aria-label*="Seite weiter"], [title*="Seite weiter"], a[rel="next"], [aria-label*="ächste"]').first
+        if self._seite.url != seite.url:
+            # nach dem Öffnen von Veröffentlichungen zurück zur Trefferliste
+            self._seite.goto(seite.url, wait_until="domcontentloaded")
+            self._nach_aktion("trefferliste_zurueck")
+            daten = self._lies_treffer()
+            if not daten["treffer"]:
+                # Suchsitzung abgelaufen: neu suchen und zur gewünschten Seite springen
+                self.suche(getattr(self, "_begriff", ""))
+        weiter = self._seite.locator('[aria-label="Springe eine Seite weiter"], [aria-label*="Seite weiter"], a[rel="next"]').first
         if weiter.count() == 0:
             return None
+        if seite.nummer > 1 and self._aktuelle_seite() < seite.nummer:
+            for _ in range(seite.nummer - self._aktuelle_seite()):
+                weiter.click()
+                self._nach_aktion("blaettern")
         weiter.click()
         self._nach_aktion("trefferliste")
         return self._trefferseite(erwartet=seite.nummer + 1)
+
+    def _aktuelle_seite(self):
+        d = self._lies_treffer()
+        return d.get("seite") or 1
+
+    def _lies_treffer(self):
+        return self._seite.evaluate(JS_TREFFER)
 
     def _trefferseite(self, erwartet):
         # Die Trefferliste entsteht erst im Browser: warten, bis Inhalt da ist (höchstens das Zeitlimit)
         ende = time.monotonic() + self.zeitlimit_ms / 1000
         while True:
             self._seite.wait_for_timeout(500)
-            daten = self._seite.evaluate(JS_TREFFER)
-            if daten["treffer"] or daten.get("zuViele") or daten.get("gesperrt") or daten.get("formular") or not daten.get("leer"):
+            daten = self._lies_treffer()
+            if daten["treffer"] or daten.get("zuViele") or daten.get("gesperrt") or daten.get("keine") or daten.get("formular") \
+                    or (daten.get("seiten") and not daten.get("laedt")):
                 break
             if time.monotonic() > ende:
-                raise UnternehmensregisterFehler("Die Trefferliste wurde nicht geladen (Seite bleibt leer). Meist sind die Skripte des "
-                                                 "Unternehmensregisters im Browser nicht angekommen (Netz/Proxy); `python -m bilanzen diagnose` "
+                raise UnternehmensregisterFehler("Die Trefferliste wurde nicht geladen (Seite bleibt leer). `python -m bilanzen diagnose` "
                                                  "legt Bildschirmfotos ab.")
         if daten.get("gesperrt"):
             raise UnternehmensregisterFehler("Das Unternehmensregister meldet eine Sperre oder abgelaufene Sitzung. Bitte später erneut versuchen "
                                              "und BILANZ_PAUSE erhöhen.")
         if daten.get("zuViele"):
             raise UnternehmensregisterFehler("Zu viele Suchergebnisse – das Unternehmensregister verlangt eine engere Suche.")
-        if daten.get("formular"):
-            raise UnternehmensregisterFehler("Die Suche hat nicht reagiert: Die Seite zeigt weiter das Suchformular. Meist sind die Skripte des "
-                                             "Unternehmensregisters im Browser nicht geladen worden (Netz/Proxy); `python -m bilanzen diagnose` "
-                                             "legt Bildschirmfotos ab.")
+        if daten.get("formular") and not daten["treffer"]:
+            raise UnternehmensregisterFehler("Die Suche hat nicht reagiert: Die Seite zeigt weiter das Suchformular. "
+                                             "`python -m bilanzen diagnose` legt Bildschirmfotos ab.")
         treffer = [Treffer(name=t["name"], ort=t["ort"], titel=t["titel"], link=t["href"], datum=t["datum"],
-                           bereich="Rechnungslegung/Finanzberichte", quelle=QUELLE) for t in daten["treffer"]]
-        return Seite(treffer=treffer, nummer=daten.get("seite") or erwartet, anzahl_treffer=daten.get("anzahl") or len(treffer),
-                     naechste_url=daten["url"] + "#weiter" if daten.get("weiter") else "", url=daten["url"])
+                           bereich=t.get("bereich") or "Rechnungslegung/Finanzberichte", quelle=QUELLE,
+                           register=t.get("register", ""), herkunft=t.get("herkunft", "")) for t in daten["treffer"]]
+        seiten = daten.get("seiten") or 0
+        anzahl = daten.get("anzahl") or (seiten * max(len(treffer), 1) if seiten else len(treffer))
+        return Seite(treffer=treffer, nummer=daten.get("seite") or erwartet, anzahl_treffer=anzahl,
+                     naechste_url=daten["url"] + "#weiter" if daten.get("weiter") else "", url=daten["url"], anzahl_seiten=seiten)
 
     def _pruefe_sperre(self):
         art = self._seite.evaluate(JS_SEITE_ART)
@@ -295,45 +354,67 @@ class BrowserClient:
         return self._dokument_oder_captcha(versuch=1)
 
     def captcha_loesen(self, captcha, loesung):
+        """Erst aufrufen, wenn ein Mensch die Sicherheitsabfrage in der Oberfläche bestätigt bzw. die Zeichen eingegeben hat."""
         self._warte()
-        eingabe = self._seite.locator('main input[type="text"], main input:not([type]), input[name*="aptcha"], input[name*="olution"]').first
-        if eingabe.count() == 0:
-            raise UnternehmensregisterFehler("Eingabefeld der Sicherheitsabfrage nicht gefunden.")
-        eingabe.fill(loesung.strip())
-        knopf = self._seite.locator('main button[type="submit"], main input[type="submit"]')
-        if knopf.count() == 0:
-            knopf = self._seite.get_by_role("button", name=re.compile(r"^(OK|Absenden|Bestätigen|Weiter|Prüfen|Anzeigen)$", re.I))
-        if knopf.count():
-            knopf.first.click()
+        if captcha.art == "bestaetigen":
+            kaestchen = self._seite.locator('label[for="fox-captcha-checkbox"], #fox-captcha-checkbox, input[type="checkbox"][id*="aptcha"]').first
+            if kaestchen.count() == 0:
+                raise UnternehmensregisterFehler("Kästchen der Sicherheitsabfrage nicht gefunden.")
+            kaestchen.click()
+            # Die Abfrage rechnet danach einige Sekunden im Browser und gibt dann die Veröffentlichung frei
+            ende = time.monotonic() + self.captcha_zeitlimit
+            while time.monotonic() < ende:
+                self._seite.wait_for_timeout(1000)
+                art = self._seite.evaluate(JS_SEITE_ART)
+                if not art.get("art") or art.get("fehlgeschlagen"):
+                    break
+            self._nach_aktion("nach_sicherheitsabfrage")
         else:
-            eingabe.press("Enter")
-        self._nach_aktion("nach_captcha")
+            eingabe = self._seite.locator('main input[type="text"], main input:not([type]), input[name*="aptcha"], input[name*="olution"]').first
+            if eingabe.count() == 0:
+                raise UnternehmensregisterFehler("Eingabefeld der Sicherheitsabfrage nicht gefunden.")
+            eingabe.fill((loesung or "").strip())
+            knopf = self._seite.locator('main button[type="submit"], main input[type="submit"]')
+            if knopf.count():
+                knopf.first.click()
+            else:
+                eingabe.press("Enter")
+            self._nach_aktion("nach_sicherheitsabfrage")
         return self._dokument_oder_captcha(versuch=captcha.versuch + 1)
 
     def _dokument_oder_captcha(self, versuch):
-        self._seite.wait_for_timeout(500)
-        art = self._seite.evaluate(JS_SEITE_ART)
+        ende = time.monotonic() + min(self.zeitlimit_ms / 1000, 20)
+        while True:
+            self._seite.wait_for_timeout(500)
+            art = self._seite.evaluate(JS_SEITE_ART)
+            if art.get("art") or art.get("dokument") or art.get("gesperrt") or art.get("fehler") or time.monotonic() > ende:
+                break
         if art.get("gesperrt"):
             raise UnternehmensregisterFehler("Das Unternehmensregister hat diese IP-Adresse gesperrt. Pause erhöhen und später erneut versuchen.")
-        if art.get("captcha"):
-            bild = self._captcha_bild()
-            raise CaptchaNoetig(bild=bild, bild_typ="image/png", formular_url=art["url"], seite_url=art["url"], versuch=versuch)
+        if art.get("art"):
+            raise CaptchaNoetig(bild=self._captcha_bild(art["art"]), bild_typ="image/png", formular_url=art["url"], seite_url=art["url"],
+                                versuch=versuch, art=art["art"])
         if art.get("fehler"):
             raise UnternehmensregisterFehler("Fehlerseite statt Veröffentlichung.")
         html = self._inhalt(art)
-        if not html:
-            raise UnternehmensregisterFehler("Veröffentlichung ohne lesbaren Inhalt (eventuell nur PDF oder kostenpflichtige Hinterlegung).")
-        return Dokument(html=f'<div class="publication_container">{html}</div>', url=art["url"],
-                        text=re.sub(r"<[^>]+>", " ", html))
+        if not html or not re.search(r"Bilanz|Aktiva|Passiva|Jahresabschluss", re.sub(r"<[^>]+>", " ", html)):
+            raise UnternehmensregisterFehler("Veröffentlichung ohne lesbaren Abschluss (eventuell nur PDF oder kostenpflichtige Hinterlegung).")
+        return Dokument(html=f'<div class="publication_container">{html}</div>', url=art["url"], text=re.sub(r"<[^>]+>", " ", html))
 
-    def _captcha_bild(self):
-        daten = self._seite.evaluate(JS_CAPTCHA_BILD)
-        if daten and daten.startswith("data:image/png;base64,"):
-            import base64
-            return base64.b64decode(daten.split(",", 1)[1])
-        # Rückfall: Bildschirmfoto des Hauptbereichs
-        main = self._seite.locator("main").first
-        return (main if main.count() else self._seite).screenshot()
+    def _captcha_bild(self, art):
+        """Bild der Abfrage für die Oberfläche: bei Zeichen-Captchas das Bild selbst, sonst ein Ausschnitt der Abfrage."""
+        if art == "text":
+            daten = self._seite.evaluate(r"""() => {
+              const i = Array.from(document.querySelectorAll('main img')).find(i => /captcha|sicherheit/i.test((i.alt||'') + ' ' + i.src));
+              if (!i) return null; const c = document.createElement('canvas'); c.width = i.naturalWidth; c.height = i.naturalHeight;
+              try { c.getContext('2d').drawImage(i, 0, 0); return c.toDataURL('image/png'); } catch (e) { return null; } }""")
+            if daten and daten.startswith("data:image/png;base64,"):
+                return base64.b64decode(daten.split(",", 1)[1])
+        bereich = self._seite.locator('[class*="captcha_captcha"], #fox-widget, #captcha').first
+        try:
+            return (bereich if bereich.count() else self._seite.locator("main").first).screenshot()
+        except Exception:  # noqa: BLE001
+            return self._seite.screenshot()
 
     def _inhalt(self, art):
         if art.get("iframe"):
@@ -343,50 +424,40 @@ class BrowserClient:
                         return frame.content()
                     except Exception:  # noqa: BLE001
                         break
-        if art.get("dokument"):
+        try:
+            return self._seite.evaluate(JS_DOKUMENT)
+        except Exception:  # noqa: BLE001
             main = self._seite.locator("main").first
-            if main.count():
-                return main.inner_html()
-        for url in art.get("dateien") or []:
-            try:
-                antwort = self._seite.request.get(url)
-                if antwort.ok:
-                    return antwort.text()
-            except Exception:  # noqa: BLE001
-                continue
-        main = self._seite.locator("main").first
-        return main.inner_html() if main.count() and art.get("dokument") else ""
+            return main.inner_html() if main.count() else ""
 
 
 def diagnose(begriff, ordner, chromium_pfad=None, sichtbar=False, pause=2.0):
-    """Suche, erste Trefferseite und erste Veröffentlichung bis zum Captcha durchspielen; alles im Ordner ablegen."""
+    """Suche, erste Trefferseite und erste Veröffentlichung bis zur Sicherheitsabfrage durchspielen; alles im Ordner ablegen."""
     ordner = Path(ordner)
     client = BrowserClient(pause=pause, chromium_pfad=chromium_pfad, sichtbar=sichtbar, diagnose_ordner=ordner)
     bericht = []
     try:
         seite = client.suche(begriff)
-        bericht.append(f"Suche „{begriff}“: {seite.anzahl_treffer} Treffer gemeldet, {len(seite.treffer)} auf Seite {seite.nummer}, "
+        bericht.append(f"Suche „{begriff}“: {seite.anzahl_seiten or '?'} Seiten, {len(seite.treffer)} Veröffentlichungen auf Seite {seite.nummer}, "
                        f"weitere Seiten: {'ja' if seite.naechste_url else 'nein'}")
         for t in seite.treffer[:10]:
-            bericht.append(f"  - {t.name or '?'} ({t.ort or '?'}): {t.titel} [{t.datum}] → {t.link}")
+            bericht.append(f"  - {t.name or '?'} ({t.ort or '?'}, {t.register or '?'}): {t.titel} [{t.datum}, {t.herkunft or '?'}]")
         erster = next((t for t in seite.treffer if t.ist_jahresabschluss), None)
         if erster is None:
             bericht.append("Kein Treffer mit aufrufbarem Jahresabschluss erkannt – bitte 02_trefferliste.html prüfen.")
         else:
             try:
                 dok = client.dokument(erster)
-                bericht.append(f"Veröffentlichung geladen ohne Captcha ({len(dok.html)} Zeichen).")
+                bericht.append(f"Veröffentlichung geladen ohne Sicherheitsabfrage ({len(dok.html)} Zeichen).")
                 (ordner / "veroeffentlichung.html").write_text(dok.html, encoding="utf-8")
             except CaptchaNoetig as c:
-                (ordner / "captcha.png").write_bytes(c.bild)
-                bericht.append(f"Sicherheitsabfrage erschienen (Bild {len(c.bild)} Bytes → captcha.png). Ablauf bis hierhin funktioniert.")
+                (ordner / "sicherheitsabfrage.png").write_bytes(c.bild)
+                bericht.append(f"Sicherheitsabfrage erschienen (Art: {c.art}, Bild → sicherheitsabfrage.png). Der Ablauf funktioniert bis hierhin; "
+                               "ab hier bestätigt ein Mensch in der Oberfläche.")
     except (UnternehmensregisterFehler, CaptchaNoetig) as e:
         bericht.append(f"Abbruch: {e}")
     finally:
         client.schliessen()
+    ordner.mkdir(parents=True, exist_ok=True)
     (ordner / "bericht.txt").write_text("\n".join(bericht) + "\n", encoding="utf-8")
     return bericht
-
-
-def ist_unternehmensregister_url(url):
-    return urllib.parse.urlparse(url).netloc.endswith("unternehmensregister.de")

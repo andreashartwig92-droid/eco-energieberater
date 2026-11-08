@@ -149,8 +149,8 @@ def _hinweise(eintraege, rohwerte):
     h = []
     ohne_trend = sum(1 for e in eintraege if e["perzentile"].get("trend") is None)
     if eintraege and ohne_trend == len(eintraege):
-        h.append("Für den Mehrjahrestrend fehlen zweite Jahrgänge: mehrere Geschäftsjahre je Firma laden (Bundesanzeiger bis 2021, "
-                 "Unternehmensregister ab 2022), dann zählt die jährliche Wachstumsrate.")
+        h.append("Für den Mehrjahrestrend fehlen zweite Jahrgänge: mehrere Geschäftsjahre je Firma laden (das Unternehmensregister zeigt alle offengelegten Jahre, "
+                 "„Bereits gespeicherte nicht erneut abrufen“ lädt fehlende Jahrgänge nach), dann zählt die jährliche Wachstumsrate.")
     ohne_umsatz = sum(1 for e in eintraege if not e["werte"]["groesse_ist_umsatz"])
     if eintraege and ohne_umsatz > len(eintraege) / 2:
         h.append("Mehr als die Hälfte veröffentlicht keinen Umsatz; Größe und Wachstum beruhen dort auf der Bilanzsumme.")

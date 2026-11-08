@@ -30,7 +30,7 @@ class Konfig:
     port: int = 8081
     passwort: str = ""
     datenbank: Path = WURZEL / "daten" / "bilanzen.sqlite"
-    pause: float = 2.0  # Sekunden zwischen zwei Anfragen an den Bundesanzeiger
+    pause: float = 2.0  # Sekunden zwischen zwei Seitenaufrufen im Unternehmensregister
     max_seiten_standard: int = 5  # Trefferseiten je Suchbegriff (20 Treffer je Seite)
     vertraue_proxy: bool = False
     max_anfrage_bytes: int = 20_000_000  # Import von Abschlüssen (HTML) über die Oberfläche
@@ -57,5 +57,5 @@ class Konfig:
         if k.passwort_noetig and not k.passwort:
             raise ValueError("BILANZ_PASSWORT muss gesetzt sein, sobald BILANZ_HOST nicht 127.0.0.1 ist.")
         if k.pause < 1.0:
-            raise ValueError("BILANZ_PAUSE unter 1 Sekunde ist nicht erlaubt (Rücksicht auf den Bundesanzeiger).")
+            raise ValueError("BILANZ_PAUSE unter 1 Sekunde ist nicht erlaubt (Rücksicht auf das Unternehmensregister).")
         return k

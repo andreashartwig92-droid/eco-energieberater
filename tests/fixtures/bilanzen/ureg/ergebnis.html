@@ -1,34 +1,31 @@
 <!DOCTYPE html>
-<html lang="de"><head><meta charset="utf-8"><title>Unternehmensregister – Suchergebnisse</title></head>
+<html lang="de"><head><meta charset="utf-8"><title>Suchergebnis</title></head>
 <body>
-<header><h1>Unternehmensregister</h1></header>
 <main>
-<h1>Suchergebnisse</h1>
-<p>3 Treffer</p>
-<ul class="resultList">
-  <li class="resultItem">
-    <h3 class="companyName">Muster Energieberatung GmbH</h3>
-    <p>Sitz: Musterstadt</p>
-    <p>Bereich: Rechnungslegung/Finanzberichte · Veröffentlicht am 12.03.2024</p>
-    <a href="veroeffentlichung.html?id=1">Jahresabschluss zum Geschäftsjahr vom 01.01.2022 bis zum 31.12.2022</a>
-  </li>
-  <li class="resultItem">
-    <h3 class="companyName">Klein Energieberatung UG (haftungsbeschränkt)</h3>
-    <p>Sitz: Kleinstadt</p>
-    <p>Bereich: Rechnungslegung/Finanzberichte · Veröffentlicht am 02.02.2024</p>
-    <a href="veroeffentlichung.html?id=2">Jahresabschluss zum Geschäftsjahr vom 01.01.2022 bis zum 31.12.2022</a>
-  </li>
-  <li class="resultItem">
-    <h3 class="companyName">Hinterlegt GmbH</h3>
-    <p>Sitz: Irgendwo</p>
-    <p>Hinterlegte Jahresabschlussunterlagen (kostenpflichtig)</p>
-    <button type="button">In den Dokumentenkorb legen</button>
-  </li>
-</ul>
-<nav aria-label="Seitennavigation">
-  <a aria-label="Aktuell ausgewählte Seite: 1" aria-current="page" href="#">1</a>
-  <a aria-label="Navigiere auf Seite: 2" href="ergebnis2.html">2</a>
-  <a aria-label="Springe eine Seite weiter" href="ergebnis2.html">›</a>
+<h1>Suchergebnis</h1>
+<p>Ergebnisse für Suchbegriff "Energieberatung"</p>
+<div>2 Seiten</div>
+<table data-testid="searchResultTable">
+<thead><tr><th>Firma</th><th>Information</th><th>Bezeichnung</th></tr></thead>
+<tbody>
+<tr data-testid="companyHeader"><th><div><p data-testid="company-name">Muster Energieberatung GmbH</p><p>Amtsgericht Musterstadt</p><p>HRB 12345 </p><p>EUID: DEX1234.HRB12345</p><p>Status: Aktuell</p></div></th>
+  <th data-testid="company-information"><div>Registerinformationen</div></th>
+  <th><div><p><a href="/de/deposits?x=1">Hinterlegte Jahresabschlussunterlagen</a></p></div></th></tr>
+<tr><td data-testid="company"><div>Muster Energieberatung GmbH, Musterstadt</div></td>
+  <td data-testid="information"><div><span>Rechnungs&shy;legung / Finanz&shy;berichte</span><br><span>Unternehmensregister</span></div></td>
+  <td data-testid="label"><div><div><a data-testid="normal-pub" href="veroeffentlichung.html?id=1">Jahresabschluss zum Geschäftsjahr vom 01.01.2022 bis zum 31.12.2022</a><span data-cy="searchResult-date">Datum: 12.03.2024</span><span>Sprache: Deutsch</span></div></div></td></tr>
+<tr data-testid="companyHeader"><th><div><p data-testid="company-name">Klein Energieberatung UG (haftungsbeschränkt)</p><p>Amtsgericht Kiel</p><p>HRB 99001 </p></div></th>
+  <th data-testid="company-information"><div>Registerinformationen</div></th><th><div></div></th></tr>
+<tr><td data-testid="company"><div>Klein Energieberatung UG (haftungsbeschränkt), Kleinstadt</div></td>
+  <td data-testid="information"><div><span>Rechnungs&shy;legung / Finanz&shy;berichte</span><br><span>Bundesanzeiger</span></div></td>
+  <td data-testid="label"><div><div><a data-testid="normal-pub" href="veroeffentlichung.html?id=2">Jahresabschluss zum Geschäftsjahr vom 01.01.2021 bis zum 31.12.2021</a><span data-cy="searchResult-date">Datum: 02.02.2023</span><span>Sprache: Deutsch</span></div></div></td></tr>
+</tbody>
+</table>
+<nav>
+  <button aria-label="Springe eine Seite zurück" disabled>‹</button>
+  <button aria-label="Aktuell ausgewählte Seite: 1">1</button>
+  <button aria-label="Navigiere auf Seite: 2" onclick="location.href='ergebnis2.html?companyName=Energieberatung&from=30&searchToken=abc'">2</button>
+  <button aria-label="Springe eine Seite weiter" onclick="location.href='ergebnis2.html?companyName=Energieberatung&from=30&searchToken=abc'">›</button>
 </nav>
 </main>
 </body></html>

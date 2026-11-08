@@ -1,20 +1,18 @@
 <!DOCTYPE html>
-<html lang="de"><head><meta charset="utf-8"><title>Unternehmensregister – Veröffentlichung</title></head>
+<html lang="de"><head><meta charset="utf-8"><title>Veröffentlichung</title></head>
 <body>
-<header><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMzAiLz4=" alt="Logo Unternehmensregister" width="100" height="30"></header>
+<header><nav class="breadcrumbs">Startseite / Suchergebnis / Veröffentlichung</nav></header>
 <main>
-<div id="captcha">
+<h1>Suche in allen Bereichen</h1>
+<form role="search"><input name="companyName"><button type="submit" name="search">Suchen</button></form>
+<div class="captcha_captcha__G6EkL" id="abfrage">
   <h2>Sicherheitsabfrage</h2>
   <p>Um die gewählte Veröffentlichung anzusehen, lösen Sie bitte die folgende Sicherheitsabfrage:</p>
-  <canvas id="bildquelle" width="200" height="60" hidden></canvas>
-  <img id="captchaBild" alt="Sicherheitsabfrage" width="200" height="60">
-  <form onsubmit="event.preventDefault(); pruefen();">
-    <input type="text" name="captchaSolution" autocomplete="off">
-    <button type="submit">OK</button>
-  </form>
-  <p id="meldung"></p>
+  <form><div id="fox-widget" data-challenge="test">
+    <label for="fox-captcha-checkbox"><input id="fox-captcha-checkbox" type="checkbox"> <span>Ich bin ein Mensch</span></label>
+  </div></form>
 </div>
-<div id="inhalt" hidden>
+<div class="publication_container" id="inhalt" hidden>
   <h1>Muster Energieberatung GmbH</h1>
   <p>Musterstadt</p>
   <h2>Jahresabschluss zum Geschäftsjahr vom 01.01.2022 bis zum 31.12.2022</h2>
@@ -37,15 +35,10 @@
   <p>Im Geschäftsjahr wurden durchschnittlich 12 Arbeitnehmer beschäftigt.</p>
 </div>
 <script>
-  // Testattrappe: Captcha-Bild aus einem Canvas erzeugen, Lösung "7K3P"
-  const c = document.getElementById('bildquelle'); const ctx = c.getContext('2d');
-  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 200, 60); ctx.fillStyle = '#000'; ctx.font = '32px sans-serif'; ctx.fillText('7K3P', 40, 42);
-  document.getElementById('captchaBild').src = c.toDataURL('image/png');
-  function pruefen() {
-    const w = document.querySelector('input[name=captchaSolution]').value.trim().toUpperCase();
-    if (w === '7K3P') { document.getElementById('captcha').remove(); document.getElementById('inhalt').hidden = false; }
-    else { document.getElementById('meldung').textContent = 'Die Zeichen waren nicht korrekt. Bitte erneut versuchen.'; }
-  }
+  // Nachbildung der Abfrage „Ich bin ein Mensch“: nach dem Anklicken eine kurze Rechenpause, dann wird die Veröffentlichung gezeigt
+  document.getElementById('fox-captcha-checkbox').addEventListener('change', () => {
+    setTimeout(() => { document.getElementById('abfrage').remove(); document.getElementById('inhalt').hidden = false; }, 1500);
+  });
 </script>
 </main>
 </body></html>

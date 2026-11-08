@@ -1,9 +1,9 @@
-"""Hintergrundaufträge: Suchbegriffe im Bundesanzeiger abfragen, Jahresabschlüsse laden, auswerten, speichern.
+"""Hintergrundaufträge: Suchbegriffe im Unternehmensregister abfragen, Jahresabschlüsse laden, auswerten, speichern.
 
-Ein Arbeiter-Thread arbeitet die Aufträge nacheinander ab (eine Sitzung, eine Anfrage nach der anderen).
-Verlangt der Bundesanzeiger eine Sicherheitsabfrage, bleibt der Auftrag im Zustand `captcha` stehen, bis
-über `captcha_beantworten` eine Lösung kommt. Der Zustand jedes Auftrags ist über `als_dict()` für die
-Oberfläche abrufbar.
+Ein Arbeiter-Thread arbeitet die Aufträge nacheinander ab (eine Browsersitzung, eine Anfrage nach der anderen).
+Verlangt das Register eine Sicherheitsabfrage, bleibt der Auftrag im Zustand `captcha` stehen, bis ein Mensch sie
+über `captcha_beantworten` bestätigt (Kästchen „Ich bin ein Mensch“) bzw. die Zeichen eingibt. Der Zustand jedes
+Auftrags ist über `als_dict()` für die Oberfläche abrufbar.
 """
 
 import base64
@@ -14,29 +14,12 @@ import uuid
 from collections import deque
 from dataclasses import dataclass, field
 
-from .bundesanzeiger import BundesanzeigerFehler, CaptchaNoetig, Client, geschaeftsjahr_aus_titel
+from .modelle import CaptchaNoetig, geschaeftsjahr_aus_titel
+from .unternehmensregister import UnternehmensregisterFehler
 
-QUELLEN = ("bundesanzeiger", "unternehmensregister", "openregister")
-QUELLEN_NAMEN = {"bundesanzeiger": "Bundesanzeiger", "unternehmensregister": "Unternehmensregister", "openregister": "OpenRegister"}
-
-
-class QuellenFehler(Exception):
-    """Sammelklasse: Fehler des Bundesanzeiger- oder Unternehmensregister-Clients."""
-
-
-def _quellenfehler():
-    typen = [BundesanzeigerFehler]
-    try:
-        from .unternehmensregister import UnternehmensregisterFehler
-        typen.append(UnternehmensregisterFehler)
-    except ImportError:  # pragma: no cover
-        pass
-    from .openregister import OpenRegisterFehler
-    typen.append(OpenRegisterFehler)
-    return tuple(typen)
-
-
-QUELLEN_FEHLER = _quellenfehler()
+QUELLE = "unternehmensregister"
+QUELLEN_NAMEN = {"unternehmensregister": "Unternehmensregister"}
+QUELLEN_FEHLER = (UnternehmensregisterFehler,)
 
 log = logging.getLogger("bilanzen.auftraege")
 
@@ -49,8 +32,8 @@ class Auftrag:
     max_seiten: int = 5
     nur_neue: bool = True
     nur_liste: bool = False  # nur Treffer zählen/anzeigen, keine Dokumente laden
-    quelle: str = "bundesanzeiger"
-    optionen: dict = field(default_factory=dict)  # quellenspezifisch, z. B. OpenRegister: suchfeld, nur_aktive, ort
+    ab_jahr: int = 0  # nur Geschäftsjahre ab diesem Jahr laden (0 = alle); spart Bestätigungen für sehr alte Abschlüsse
+    quelle: str = QUELLE
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:10])
     zustand: str = "wartet"
     erstellt: float = field(default_factory=time.time)
@@ -58,7 +41,8 @@ class Auftrag:
     beendet: float | None = None
     aktueller_begriff: str = ""
     seiten_gelesen: int = 0
-    treffer_gesamt: int = 0  # laut Bundesanzeiger
+    seiten_gesamt: int = 0
+    treffer_gesamt: int = 0  # Veröffentlichungen laut Register
     treffer_gesehen: int = 0
     geladen: int = 0
     uebersprungen: int = 0
@@ -68,6 +52,7 @@ class Auftrag:
     protokoll: deque = field(default_factory=lambda: deque(maxlen=200))
     treffer_liste: list = field(default_factory=list)  # bei nur_liste
     captcha: CaptchaNoetig | None = None
+    captcha_treffer: str = ""  # welche Veröffentlichung gerade auf die Bestätigung wartet
     _captcha_loesung: str | None = None
     _ereignis: threading.Event = field(default_factory=threading.Event)
     abbruch: bool = False
@@ -79,44 +64,30 @@ class Auftrag:
     def als_dict(self):
         d = {
             "id": self.id, "begriffe": self.begriffe, "max_seiten": self.max_seiten, "nur_neue": self.nur_neue, "nur_liste": self.nur_liste,
-            "quelle": self.quelle, "optionen": self.optionen,
-            "zustand": self.zustand, "erstellt": self.erstellt, "begonnen": self.begonnen, "beendet": self.beendet,
-            "aktueller_begriff": self.aktueller_begriff, "seiten_gelesen": self.seiten_gelesen, "treffer_gesamt": self.treffer_gesamt,
-            "treffer_gesehen": self.treffer_gesehen, "geladen": self.geladen, "uebersprungen": self.uebersprungen, "fehler": self.fehler,
-            "captcha_versuche": self.captcha_versuche, "meldung": self.meldung, "protokoll": list(self.protokoll)[-40:],
-            "treffer_liste": self.treffer_liste[-500:],
+            "ab_jahr": self.ab_jahr, "quelle": self.quelle, "zustand": self.zustand, "erstellt": self.erstellt, "begonnen": self.begonnen, "beendet": self.beendet,
+            "aktueller_begriff": self.aktueller_begriff, "seiten_gelesen": self.seiten_gelesen, "seiten_gesamt": self.seiten_gesamt,
+            "treffer_gesamt": self.treffer_gesamt, "treffer_gesehen": self.treffer_gesehen, "geladen": self.geladen,
+            "uebersprungen": self.uebersprungen, "fehler": self.fehler, "captcha_versuche": self.captcha_versuche, "meldung": self.meldung,
+            "protokoll": list(self.protokoll)[-40:], "treffer_liste": self.treffer_liste[-500:],
         }
         if self.zustand == "captcha" and self.captcha is not None:
             d["captcha_bild"] = f"data:{self.captcha.bild_typ};base64," + base64.b64encode(self.captcha.bild).decode("ascii")
+            d["captcha_art"] = self.captcha.art
+            d["captcha_treffer"] = self.captcha_treffer
         return d
 
 
-def _nimmt_optionen(fabrik):
-    import inspect
-    try:
-        return len(inspect.signature(fabrik).parameters) >= 1
-    except (TypeError, ValueError):
-        return False
-
-
 class Verwalter:
-    def __init__(self, speicher, client_fabrik=None, pause=2.0, client_fabriken=None, chromium_pfad=None):
-        """`client_fabrik` (Bundesanzeiger) bzw. `client_fabriken` {quelle: fabrik} erlauben Testattrappen."""
+    def __init__(self, speicher, client_fabrik=None, pause=2.0, chromium_pfad=None):
+        """`client_fabrik` ersetzt den Browser-Client (für Tests); ohne Angabe wird das Unternehmensregister im Browser bedient."""
         self.speicher = speicher
-        self.client_fabriken = dict(client_fabriken or {})
-        self.client_fabriken.setdefault("bundesanzeiger", client_fabrik or (lambda: Client(pause=pause)))
-        if "unternehmensregister" not in self.client_fabriken:
-            def _ureg():
+        self._eigene_fabrik = client_fabrik is not None
+        if client_fabrik is None:
+            def client_fabrik():
                 from .unternehmensregister import BrowserClient
                 return BrowserClient(pause=pause, chromium_pfad=chromium_pfad)
-            self.client_fabriken["unternehmensregister"] = _ureg
-        if "openregister" not in self.client_fabriken:
-            def _openregister(optionen=None):
-                from .openregister import Client as OpenRegisterClient
-                o = optionen or {}
-                return OpenRegisterClient(pause=max(0.5, pause / 4), suchfeld=o.get("suchfeld") or "zweck",
-                                          nur_aktive=o.get("nur_aktive", True), ort=o.get("ort") or "", mit_dokument=o.get("mit_dokument", True))
-            self.client_fabriken["openregister"] = _openregister
+        self.client_fabrik = client_fabrik
+        self.chromium_pfad = chromium_pfad
         self.auftraege = {}
         self._reihe = deque()
         self._sperre = threading.Lock()
@@ -131,28 +102,22 @@ class Verwalter:
 
     # --- Schnittstelle ---------------------------------------------------------
 
-    def anlegen(self, begriffe, max_seiten=5, nur_neue=True, nur_liste=False, quelle="bundesanzeiger", optionen=None):
+    def anlegen(self, begriffe, max_seiten=5, nur_neue=True, nur_liste=False, ab_jahr=0, **_):
         begriffe = [b.strip() for b in begriffe if b and b.strip()]
         if not begriffe:
             raise ValueError("Mindestens ein Suchbegriff ist nötig.")
-        if quelle not in QUELLEN:
-            raise ValueError(f"Unbekannte Quelle „{quelle}“ (erlaubt: {', '.join(QUELLEN)}).")
-        if quelle == "unternehmensregister":
+        if not self._eigene_fabrik:
             from .unternehmensregister import verfuegbar
-            ok, grund = verfuegbar()
+            ok, grund = verfuegbar(self.chromium_pfad)
             if not ok:
                 raise ValueError(f"Unternehmensregister nicht nutzbar: {grund}")
-        if quelle == "openregister":
-            from .openregister import verfuegbar as or_verfuegbar
-            ok, grund = or_verfuegbar()
-            if not ok:
-                raise ValueError(f"OpenRegister nicht nutzbar: {grund}")
-        a = Auftrag(begriffe=begriffe, max_seiten=max(0, int(max_seiten)), nur_neue=bool(nur_neue), nur_liste=bool(nur_liste), quelle=quelle,
-                    optionen=dict(optionen or {}))
+        a = Auftrag(begriffe=begriffe, max_seiten=max(0, int(max_seiten)), nur_neue=bool(nur_neue), nur_liste=bool(nur_liste),
+                    ab_jahr=max(0, int(ab_jahr or 0)))
         with self._sperre:
             self.auftraege[a.id] = a
             self._reihe.append(a.id)
-        a.log(f"Auftrag angelegt ({QUELLEN_NAMEN[quelle]}): {', '.join(begriffe)} (bis {a.max_seiten or 'alle'} Seiten je Begriff)")
+        a.log(f"Auftrag angelegt: {', '.join(begriffe)} (bis {a.max_seiten or 'alle'} Seiten je Begriff"
+              f"{f', Geschäftsjahre ab {a.ab_jahr}' if a.ab_jahr else ''})")
         self._weckruf.set()
         return a
 
@@ -164,6 +129,7 @@ class Verwalter:
         return self.auftraege.get(auftrag_id)
 
     def captcha_beantworten(self, auftrag_id, loesung):
+        """Ein Mensch hat die Sicherheitsabfrage bestätigt (loesung "bestaetigt") bzw. die Zeichen eingegeben."""
         a = self.auftraege.get(auftrag_id)
         if a is None:
             raise KeyError(auftrag_id)
@@ -208,11 +174,10 @@ class Verwalter:
     def _ausfuehren(self, a):
         a.begonnen = time.time()
         try:
-            fabrik = self.client_fabriken[a.quelle]
-            client = fabrik(a.optionen) if a.quelle == "openregister" and _nimmt_optionen(fabrik) else fabrik()
+            client = self.client_fabrik()
         except QUELLEN_FEHLER as e:
             a.zustand, a.meldung, a.beendet = "fehler", str(e), time.time()
-            a.log(f"Quelle nicht nutzbar: {e}")
+            a.log(f"Unternehmensregister nicht nutzbar: {e}")
             return
         try:
             self._durchlaufen(a, client)
@@ -229,7 +194,7 @@ class Verwalter:
                 break
             a.aktueller_begriff = begriff
             a.zustand = "sucht"
-            a.log(f"Suche „{begriff}“ im {QUELLEN_NAMEN[a.quelle]} (Rechnungslegung/Finanzberichte) …")
+            a.log(f"Suche „{begriff}“ im Unternehmensregister (Rechnungslegung/Finanzberichte) …")
             try:
                 seite = client.suche(begriff)
             except QUELLEN_FEHLER as e:
@@ -237,7 +202,8 @@ class Verwalter:
                 a.log(f"Suche fehlgeschlagen: {e}")
                 continue
             a.treffer_gesamt += seite.anzahl_treffer
-            a.log(f"{seite.anzahl_treffer} Treffer gemeldet.")
+            a.seiten_gesamt += getattr(seite, "anzahl_seiten", 0) or 0
+            a.log(f"{getattr(seite, 'anzahl_seiten', 0) or '?'} Seiten mit Veröffentlichungen gefunden.")
             while seite is not None and not a.abbruch:
                 a.seiten_gelesen += 1
                 for treffer in seite.treffer:
@@ -257,26 +223,25 @@ class Verwalter:
         a.zustand = "abgebrochen" if a.abbruch else "fertig"
         a.beendet = time.time()
         a.meldung = (f"{a.geladen} Abschlüsse geladen, {a.uebersprungen} übersprungen, {a.fehler} Fehler, "
-                     f"{client.anfragen} Anfragen an das Portal ({QUELLEN_NAMEN[a.quelle]}).")
-        kontingent = getattr(client, "kontingent", None)
-        if kontingent is not None:
-            a.meldung += f" Etwa {kontingent.punkte} OpenRegister-Punkte verbraucht."
+                     f"{client.anfragen} Seitenaufrufe im Unternehmensregister.")
         a.log("Fertig. " + a.meldung)
 
     def _treffer_bearbeiten(self, a, client, begriff, treffer):
         gj_von, gj_bis = geschaeftsjahr_aus_titel(treffer.titel)
         if a.nur_liste:
             a.treffer_liste.append({"name": treffer.name, "ort": treffer.ort, "titel": treffer.titel, "datum": treffer.datum,
-                                    "gj_bis": gj_bis, "einsehbar": bool(treffer.link),
+                                    "gj_bis": gj_bis, "einsehbar": bool(treffer.link), "register": treffer.register,
+                                    "herkunft": treffer.herkunft,
                                     "vorhanden": self.speicher.hat_abschluss(treffer.name, treffer.ort, gj_bis)})
+            return
+        if a.ab_jahr and gj_bis and int(gj_bis[:4]) < a.ab_jahr:
+            a.uebersprungen += 1
             return
         if not treffer.ist_jahresabschluss:
             a.uebersprungen += 1
             grund = "kein einsehbares Dokument (nur hinterlegt)" if not treffer.link else f"kein Jahresabschluss: {treffer.titel[:60]}"
             self.speicher.uebersprungen_merken(begriff, treffer, grund)
             return
-        if hasattr(client, "abschluesse"):
-            return self._abschluesse_uebernehmen(a, client, begriff, treffer)
         if a.nur_neue and self.speicher.hat_abschluss(treffer.name, treffer.ort, gj_bis):
             a.uebersprungen += 1
             # Firma trotzdem dem Suchbegriff zuordnen
@@ -300,35 +265,6 @@ class Verwalter:
         if abschluss.warnungen:
             a.log(f"  Hinweis: {'; '.join(abschluss.warnungen)}")
 
-    def _abschluesse_uebernehmen(self, a, client, begriff, treffer):
-        """Quellen, die fertige Abschlüsse liefern (OpenRegister): alle Jahre einer Firma in einem Abruf."""
-        if a.nur_neue and self.speicher.hat_abschluss_quelle(treffer.name, treffer.ort, a.quelle):
-            a.uebersprungen += 1
-            self.speicher.firma_anlegen(treffer.name, treffer.ort, suchbegriff=begriff)
-            return
-        a.zustand = "laedt"
-        a.log(f"Lade Finanzdaten: {treffer.name} ({treffer.ort})")
-        try:
-            liste = client.abschluesse(treffer)
-        except QUELLEN_FEHLER as e:
-            a.fehler += 1
-            a.log(f"Fehler: {e}")
-            self.speicher.uebersprungen_merken(begriff, treffer, f"Fehler: {e}")
-            if "Kontingent" in str(e) or "402" in str(e):
-                a.abbruch = True
-                a.meldung = str(e)
-            return
-        if not liste:
-            a.uebersprungen += 1
-            self.speicher.uebersprungen_merken(begriff, treffer, "keine veröffentlichten Finanzdaten")
-            self.speicher.firma_anlegen(treffer.name, treffer.ort, suchbegriff=begriff)
-            return
-        firma_id = self.speicher.firma_anlegen(treffer.name, treffer.ort, liste[0][0].rechtsform, begriff)
-        for abschluss, roh_html, quelle_url in liste:
-            self.speicher.abschluss_speichern(firma_id, abschluss, roh_html, abschluss.titel, "", a.quelle, quelle_url)
-        a.geladen += len(liste)
-        a.log(f"  {len(liste)} Geschäftsjahre übernommen ({liste[-1][0].gj_bis[:4]}–{liste[0][0].gj_bis[:4]})")
-
     def _dokument_mit_captcha(self, a, client, treffer):
         try:
             return client.dokument(treffer)
@@ -336,10 +272,11 @@ class Verwalter:
             captcha = c
         while not a.abbruch:
             a.captcha = captcha
+            a.captcha_treffer = f"{treffer.name} – {treffer.titel}"
             a.zustand = "captcha"
             a._captcha_loesung = None
             a._ereignis.clear()
-            a.log(f"Sicherheitsabfrage ({QUELLEN_NAMEN[a.quelle]}) – bitte in der Oberfläche lösen.")
+            a.log("Sicherheitsabfrage des Unternehmensregisters – bitte in der Oberfläche bestätigen.")
             while not a._ereignis.wait(timeout=1.0):
                 if a.abbruch or not self._laeuft:
                     return None
@@ -351,9 +288,9 @@ class Verwalter:
             try:
                 dokument = client.captcha_loesen(captcha, loesung)
                 a.captcha = None
-                a.log("Sicherheitsabfrage gelöst.")
+                a.log("Sicherheitsabfrage bestätigt, Veröffentlichung geladen.")
                 return dokument
             except CaptchaNoetig as c:
                 captcha = c
-                a.log("Lösung nicht angenommen – neue Sicherheitsabfrage.")
+                a.log("Sicherheitsabfrage noch offen – bitte erneut bestätigen.")
         return None

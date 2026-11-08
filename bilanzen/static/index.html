@@ -54,7 +54,7 @@
   .balken .fuellung { height: 100%; background: var(--akzent); }
   .balken .n { width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
   .suche { display: grid; grid-template-columns: 1fr; gap: 10px; }
-  @media (min-width: 900px) { .suche { grid-template-columns: 3fr 1fr auto; align-items: end; } }
+  @media (min-width: 900px) { .suche { grid-template-columns: 3fr 1fr 1fr auto; align-items: end; } }
   .suche input[type=text] { font-size: 17px; padding: 12px 14px; }
   .suche button { padding: 12px 22px; font-size: 16px; }
   .quelle-status { margin-top: 10px; }
@@ -99,23 +99,15 @@
 <main>
   <section class="karte" id="suche-karte">
     <div class="suche">
-      <div><label for="begriff">Branche oder Suchbegriff (im Unternehmensgegenstand; mehrere mit Komma = oder)</label>
+      <div><label for="begriff">Branche oder Begriff im Firmennamen (mehrere mit Komma: jeder wird einzeln gesucht)</label>
         <input type="text" id="begriff" placeholder="Energieberatung, Energieberater" autocomplete="off"></div>
-      <div><label for="or-ort">Orte (optional)</label><input type="text" id="or-ort" placeholder="Hamburg, Berlin"></div>
+      <div><label for="max-seiten">Seiten je Begriff (30 Veröffentlichungen je Seite, 0 = alle)</label><input type="number" id="max-seiten" min="0" value="3"></div>
+      <div><label for="ab-jahr">Geschäftsjahre ab</label><input type="number" id="ab-jahr" min="0" step="1"></div>
       <div><button class="primaer" id="start">Daten holen</button></div>
     </div>
     <details style="margin-top:8px"><summary>Einstellungen</summary>
-      <div class="zeile">
-        <div><label for="or-suchfeld">Suchen in</label>
-          <select id="or-suchfeld">
-            <option value="zweck">Unternehmensgegenstand (Branche)</option>
-            <option value="name">Firmenname</option>
-            <option value="branche">WZ-2025-Branchencode (z. B. 71.12)</option>
-          </select></div>
-        <div><label for="max-firmen">Höchstens Firmen je Suchbegriff (0 = alle)</label><input type="number" id="max-firmen" min="0" step="50" value="100"></div>
-      </div>
-      <label><input type="checkbox" id="or-aktiv" checked> Nur aktive Firmen</label>
-      <label><input type="checkbox" id="nur-neue" checked> Bereits gespeicherte Firmen nicht erneut abrufen</label>
+      <label><input type="checkbox" id="nur-neue" checked> Bereits gespeicherte Abschlüsse nicht erneut abrufen</label>
+      <label><input type="checkbox" id="nur-liste"> Nur Trefferliste lesen (Firmen und Veröffentlichungen zählen, keine Abschlüsse öffnen)</label>
     </details>
     <div class="quelle-status hinweis" id="quelle-status"></div>
     <div id="auftraege"></div>
@@ -205,8 +197,7 @@
   let aktiveAuftraege = 0;
   let quellen = {};
   let quelleStandard = '';
-  const QUELLEN_NAMEN = { openregister: 'OpenRegister-Schnittstelle', unternehmensregister: 'Unternehmensregister (gesteuerter Browser)', bundesanzeiger: 'Bundesanzeiger', csv: 'CSV', import: 'Import' };
-  const PRO_SEITE = { openregister: 50, unternehmensregister: 20, bundesanzeiger: 20 };
+  const QUELLEN_NAMEN = { unternehmensregister: 'Unternehmensregister', bundesanzeiger: 'Bundesanzeiger', openregister: 'OpenRegister', csv: 'CSV', import: 'Import' };
 
   const fmtGeld = (w) => (w == null) ? '–' : new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(w) + ' €';
   const fmtPct = (w, stellen = 1) => (w == null) ? '–' : new Intl.NumberFormat('de-DE', { minimumFractionDigits: stellen, maximumFractionDigits: stellen }).format(w * 100) + ' %';
@@ -231,17 +222,15 @@
 
   function zeigeQuelle() {
     const el = $('#quelle-status');
+    const q = quellen.unternehmensregister || {};
     if (!quelleStandard) {
-      const or = quellen.openregister || {}; const ur = quellen.unternehmensregister || {};
-      el.innerHTML = `<span class="marke warn">Keine Datenquelle bereit</span> ${esc(or.hinweis || '')}${ur.hinweis ? ' · ' + esc(ur.hinweis) : ''}`;
+      el.innerHTML = `<span class="marke warn">Unternehmensregister nicht erreichbar</span> ${esc(q.hinweis || '')}`;
       $('#start').disabled = true;
       return;
     }
-    const q = quellen[quelleStandard] || {};
-    el.innerHTML = `<span class="marke">Datenquelle: ${esc(QUELLEN_NAMEN[quelleStandard] || quelleStandard)}</span> ${esc(q.hinweis || '')}` +
-      (quelleStandard === 'unternehmensregister' ? ' – Vor dem ersten Dokument fragt das Register eine Sicherheitsabfrage ab; sie erscheint hier und wird von Ihnen eingetippt. ' +
-        'Ohne Captcha und mit allen Jahren je Firma: OpenRegister-Schlüssel (openregister.de/keys) als OPENREGISTER_API_KEY setzen.' : '');
-    $('#start').disabled = !q.bereit;
+    el.innerHTML = `<span class="marke">Datenquelle: Unternehmensregister</span> ${esc(q.hinweis || '')}. ` +
+      'Vor jeder Veröffentlichung verlangt das Register die Bestätigung „Ich bin ein Mensch“; sie erscheint hier mit Ton und wird von Ihnen bestätigt.';
+    $('#start').disabled = false;
   }
 
   async function info() {
@@ -262,19 +251,17 @@
   // --- Suche / Aufträge -----------------------------------------------------------
   let zuletztGesucht = '';
   $('#start').onclick = async () => {
-    const begriff = $('#begriff').value.trim();
-    if (!begriff) return alert('Bitte eine Branche oder einen Suchbegriff eingeben.');
-    const proSeite = PRO_SEITE[quelleStandard] || 50;
-    const maxFirmen = Number($('#max-firmen').value);
-    const maxSeiten = maxFirmen > 0 ? Math.max(1, Math.ceil(maxFirmen / proSeite)) : 0;
+    const begriffe = $('#begriff').value.split(',').map(s => s.trim()).filter(Boolean);
+    if (!begriffe.length) return alert('Bitte eine Branche oder einen Suchbegriff eingeben.');
     try {
-      await api('/api/auftraege', { method: 'POST', body: JSON.stringify({ begriffe: [begriff], max_seiten: maxSeiten, nur_neue: $('#nur-neue').checked, quelle: 'auto',
-        optionen: { suchfeld: $('#or-suchfeld').value, ort: $('#or-ort').value, nur_aktive: $('#or-aktiv').checked } }) });
-      zuletztGesucht = begriff;
+      await api('/api/auftraege', { method: 'POST', body: JSON.stringify({ begriffe, max_seiten: Number($('#max-seiten').value), nur_neue: $('#nur-neue').checked,
+        nur_liste: $('#nur-liste').checked, ab_jahr: Number($('#ab-jahr').value) || 0 }) });
+      zuletztGesucht = begriffe[0];
       ladeAuftraege();
     } catch (e) { alert(e.message); }
   };
   $('#begriff').addEventListener('keydown', e => { if (e.key === 'Enter') $('#start').click(); });
+  $('#ab-jahr').value = new Date().getFullYear() - 4;  // Vorgabe: die letzten Jahrgänge, ältere kosten nur Bestätigungen
 
   async function ladeAuftraege() {
     let r; try { r = await api('/api/auftraege'); } catch (e) { return; }
@@ -284,24 +271,36 @@
     const zeigen = r.auftraege.filter((a, i) => i < 1 || !['fertig', 'fehler', 'abgebrochen'].includes(a.zustand) || (Date.now() / 1000 - (a.beendet || 0)) < 600).slice(0, 5);
     el.innerHTML = zeigen.map(a => {
       const laeuft = !['fertig', 'fehler', 'abgebrochen'].includes(a.zustand);
-      const fortschritt = `${a.geladen} Abschlüsse geladen · ${a.uebersprungen} übersprungen · ${a.fehler} Fehler · ${a.treffer_gesehen}/${a.treffer_gesamt || '?'} Firmen · ${a.seiten_gelesen} Seiten`;
+      const fortschritt = a.nur_liste ? `${a.treffer_gesehen} Veröffentlichungen gelesen · ${a.seiten_gelesen}/${a.seiten_gesamt || '?'} Seiten`
+        : `${a.geladen} Abschlüsse geladen · ${a.uebersprungen} übersprungen · ${a.fehler} Fehler · ${a.treffer_gesehen} Veröffentlichungen gesehen · Seite ${a.seiten_gelesen}/${a.seiten_gesamt || '?'}`;
       let captcha = '';
       if (a.zustand === 'captcha' && a.captcha_bild) {
-        captcha = `<div class="captcha"><strong>Sicherheitsabfrage (${esc(QUELLEN_NAMEN[a.quelle] || a.quelle)})</strong> – Zeichen ablesen und eingeben, dann läuft der Abruf weiter:
-          <img src="${a.captcha_bild}" alt="Captcha">
-          <div class="zeile"><input type="text" id="captcha-${a.id}" autocomplete="off" autofocus placeholder="Zeichen"><button class="primaer" data-captcha="${a.id}">Absenden</button></div></div>`;
+        captcha = a.captcha_art === 'bestaetigen'
+          ? `<div class="captcha"><strong>Sicherheitsabfrage des Unternehmensregisters</strong> für ${esc(a.captcha_treffer || '')}:
+              <img src="${a.captcha_bild}" alt="Sicherheitsabfrage">
+              <div class="zeile"><button class="primaer" data-captcha="${a.id}" data-loesung="bestaetigt">Ich bin ein Mensch – bestätigen</button>
+              <span class="hinweis">Danach rechnet die Abfrage einige Sekunden im Browser, dann lädt der Abschluss.</span></div></div>`
+          : `<div class="captcha"><strong>Sicherheitsabfrage des Unternehmensregisters</strong> – Zeichen ablesen und eingeben:
+              <img src="${a.captcha_bild}" alt="Sicherheitsabfrage">
+              <div class="zeile"><input type="text" id="captcha-${a.id}" autocomplete="off" autofocus placeholder="Zeichen"><button class="primaer" data-captcha="${a.id}">Absenden</button></div></div>`;
+      }
+      let liste = '';
+      if (a.nur_liste && a.treffer_liste.length) {
+        liste = `<details><summary>${a.treffer_liste.length} Veröffentlichungen anzeigen</summary><div style="overflow:auto"><table><thead><tr><th>Firma</th><th>Ort</th><th>Register</th><th>GJ bis</th><th>Veröffentlichung</th><th>Herkunft</th><th>gespeichert</th></tr></thead><tbody>` +
+          a.treffer_liste.map(t => `<tr><td>${esc(t.name)}</td><td>${esc(t.ort)}</td><td>${esc(t.register || '')}</td><td>${esc(t.gj_bis)}</td><td>${esc(t.titel)}</td><td>${esc(t.herkunft || '')}</td><td>${t.vorhanden ? '✓' : ''}</td></tr>`).join('') + '</tbody></table></div></details>';
       }
       return `<div class="auftrag">
-        <div class="kopf"><div><strong>${a.begriffe.map(esc).join(', ')}</strong> <span class="marke">${esc(QUELLEN_NAMEN[a.quelle] || a.quelle)}</span> <span class="zustand ${a.zustand}">${a.zustand === 'fertig' ? 'fertig' : a.zustand === 'sucht' ? 'sucht Firmen' : a.zustand === 'laedt' ? 'lädt Abschlüsse' : a.zustand}</span></div>
+        <div class="kopf"><div><strong>${a.begriffe.map(esc).join(', ')}</strong> <span class="marke">${esc(QUELLEN_NAMEN[a.quelle] || a.quelle)}</span> <span class="zustand ${a.zustand}">${a.zustand === 'fertig' ? 'fertig' : a.zustand === 'sucht' ? 'sucht im Register' : a.zustand === 'laedt' ? 'lädt Abschluss' : a.zustand === 'captcha' ? 'wartet auf Ihre Bestätigung' : a.zustand}</span></div>
           ${laeuft ? `<button data-abbrechen="${a.id}">Abbrechen</button>` : ''}</div>
         <div class="fortschritt">${fortschritt}${a.meldung ? ' – ' + esc(a.meldung) : ''}</div>
-        ${captcha}
+        ${captcha}${liste}
         <details><summary>Protokoll</summary><div class="protokoll">${a.protokoll.map(p => esc(p.text)).join('\n')}</div></details>
       </div>`;
     }).join('');
     $$('[data-captcha]', el).forEach(b => b.onclick = async () => {
       const id = b.dataset.captcha; const eingabe = $('#captcha-' + id);
-      try { await api(`/api/auftraege/${id}/captcha`, { method: 'POST', body: JSON.stringify({ loesung: eingabe.value }) }); b.disabled = true; setTimeout(ladeAuftraege, 800); } catch (e) { alert(e.message); }
+      const loesung = b.dataset.loesung || (eingabe ? eingabe.value : '');
+      try { await api(`/api/auftraege/${id}/captcha`, { method: 'POST', body: JSON.stringify({ loesung }) }); b.disabled = true; setTimeout(ladeAuftraege, 800); } catch (e) { alert(e.message); }
     });
     $$('[data-captcha]', el).forEach(b => { const eingabe = $('#captcha-' + b.dataset.captcha); if (eingabe) { eingabe.addEventListener('keydown', e => { if (e.key === 'Enter') b.click(); }); if (document.activeElement === document.body) eingabe.focus(); } });
     $$('[data-abbrechen]', el).forEach(b => b.onclick = async () => { await api(`/api/auftraege/${b.dataset.abbrechen}/abbrechen`, { method: 'POST', body: '{}' }); ladeAuftraege(); });
@@ -393,7 +392,7 @@
     $('#firmen tbody').innerHTML = liste.map(f => { const k = f.kennzahlen || {}; const w = k.wachstum_umsatz ?? k.wachstum_bilanzsumme;
       return `<tr class="klick" data-id="${f.id}">
         <td><span class="ampel ${k.ampel || 'grau'}"></span>${k.datenlage === 'eingeschraenkt' ? '<span title="Datenlage eingeschränkt">◐</span>' : k.datenlage === 'gering' ? '<span title="Datenlage gering">○</span>' : ''}</td>
-        <td>${esc(f.name)}${f.anzahl_abschluesse > 1 ? ` <span class="marke">${f.anzahl_abschluesse} Jahre</span>` : ''}${f.quelle && f.quelle !== 'openregister' ? ` <span class="marke">${esc(QUELLEN_NAMEN[f.quelle] || f.quelle)}</span>` : ''}</td>
+        <td>${esc(f.name)}${f.anzahl_abschluesse > 1 ? ` <span class="marke">${f.anzahl_abschluesse} Jahre</span>` : ''}${f.quelle && f.quelle !== 'unternehmensregister' ? ` <span class="marke">${esc(QUELLEN_NAMEN[f.quelle] || f.quelle)}</span>` : ''}</td>
         <td>${esc(f.ort)}</td><td>${esc((f.gj_bis || '').slice(0, 4))}</td>
         <td class="zahl">${fmtGeld(k.bilanzsumme)}</td><td class="zahl">${fmtPct(k.eigenkapitalquote, 0)}</td>
         <td class="zahl">${fmtGeld(k.umsatz)}</td><td class="zahl">${fmtPct(k.umsatzrendite)}</td>
@@ -510,7 +509,7 @@
       try { const ac = new (window.AudioContext || window.webkitAudioContext)(); const o = ac.createOscillator(); const g = ac.createGain();
         o.connect(g); g.connect(ac.destination); o.frequency.value = 880; g.gain.value = 0.08; o.start(); o.stop(ac.currentTime + 0.25); } catch (e) {}
       if ('Notification' in window && Notification.permission === 'granted') {
-        try { new Notification('Sicherheitsabfrage wartet', { body: `Auftrag „${a.begriffe.join(', ')}“ braucht Ihre Eingabe.` }); } catch (e) {}
+        try { new Notification('Bestätigung nötig', { body: `Das Unternehmensregister fragt „Ich bin ein Mensch“ für ${a.captcha_treffer || a.begriffe.join(', ')}.` }); } catch (e) {}
       }
     }
   }

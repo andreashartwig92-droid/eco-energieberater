@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS abschluesse (
     gj_von TEXT NOT NULL DEFAULT '',
     gj_bis TEXT NOT NULL DEFAULT '',
     veroeffentlicht TEXT NOT NULL DEFAULT '',
-    quelle TEXT NOT NULL DEFAULT 'bundesanzeiger', -- bundesanzeiger | import
+    quelle TEXT NOT NULL DEFAULT 'unternehmensregister', -- unternehmensregister | import | csv
     quelle_url TEXT NOT NULL DEFAULT '',
     roh_html TEXT NOT NULL DEFAULT '',
     abschluss_json TEXT NOT NULL DEFAULT '{}',
@@ -117,7 +117,7 @@ class Speicher:
 
     # --- Abschlüsse ----------------------------------------------------------
 
-    def abschluss_speichern(self, firma_id, abschluss, roh_html="", titel="", veroeffentlicht="", quelle="bundesanzeiger", quelle_url=""):
+    def abschluss_speichern(self, firma_id, abschluss, roh_html="", titel="", veroeffentlicht="", quelle="unternehmensregister", quelle_url=""):
         k = _kz.berechne(abschluss)
         daten = abschluss.als_dict()
         with self._sperre:
@@ -135,11 +135,11 @@ class Speicher:
             z = self._db.execute("SELECT id FROM abschluesse WHERE firma_id = ? AND gj_bis = ?", (firma_id, abschluss.gj_bis)).fetchone()
             return z["id"]
 
-    def dokument_speichern(self, name, ort, html, titel="", veroeffentlicht="", suchbegriff="", quelle="bundesanzeiger", quelle_url=""):
+    def dokument_speichern(self, name, ort, html, titel="", veroeffentlicht="", suchbegriff="", quelle="unternehmensregister", quelle_url=""):
         """HTML parsen und ablegen; liefert (firma_id, abschluss_id, Abschluss)."""
         abschluss = parse_jahresabschluss(html, titel=titel, firma=name)
         if not abschluss.gj_bis:
-            from .bundesanzeiger import geschaeftsjahr_aus_titel
+            from .modelle import geschaeftsjahr_aus_titel
             abschluss.gj_von, abschluss.gj_bis = geschaeftsjahr_aus_titel(titel)
         firma_id = self.firma_anlegen(name or abschluss.firma, ort, abschluss.rechtsform, suchbegriff)
         abschluss_id = self.abschluss_speichern(firma_id, abschluss, html, titel, veroeffentlicht, quelle, quelle_url)

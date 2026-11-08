@@ -1,16 +1,32 @@
 <!DOCTYPE html>
-<html lang="de"><head><meta charset="utf-8"><title>Unternehmensregister – Suche in Rechnungslegung</title></head>
+<html lang="de"><head><meta charset="utf-8"><title>Suche in Rechnungslegung / Finanzberichte</title>
+<style>#cookies{position:fixed;inset:0;background:rgba(0,0,0,.5)} #cookies div{background:#fff;margin:100px auto;width:400px;padding:20px}</style></head>
 <body>
 <header><h1>Unternehmensregister</h1></header>
 <main>
-<div class="card">
-<h1>Suche in Rechnungslegung/Finanzberichte</h1>
-<form class="searchForm" role="search" onsubmit="event.preventDefault(); location.href='ergebnis.html?companyName=' + encodeURIComponent(this.companyName.value);">
-<label for="companyName"><span>Firmenname</span><input id="companyName" name="companyName"></label>
-<label for="companyLocation"><span>Niederlassung / Sitz</span><input id="companyLocation" name="companyLocation"></label>
-<label for="publicationContent"><span>Suchbegriff</span><input id="publicationContent" name="publicationContent"></label>
-<button class="button" type="submit" name="search">Suchen</button>
-</form>
-</div>
+<h1>Suche in Rechnungs&shy;legung / Finanz&shy;berichte</h1>
+<div id="formular"></div>
 </main>
+<div id="cookies" role="dialog"><div><h2>Cookie-Einstellungen</h2>
+  <button type="button" id="nur-noetig">Nur technisch notwendige Cookies akzeptieren</button>
+  <button type="button">Allen zustimmen</button></div></div>
+<script>
+  // Nachbildung: Das Formular wird nach dem Cookie-Dialog neu gezeichnet (wie auf der echten Seite)
+  function zeichne() {
+    document.getElementById('formular').innerHTML = `
+      <form class="searchForm" role="search">
+        <label for="companyName"><span>Firmenname</span><input id="companyName" name="companyName"></label>
+        <label for="companyLocation"><span>Niederlassung / Sitz</span><input id="companyLocation" name="companyLocation"></label>
+        <button type="submit" name="search">Suchen</button>
+      </form>`;
+    document.querySelector('form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('companyName').value;
+      if (!name) return;
+      location.href = 'ergebnis.html?companyName=' + encodeURIComponent(name) + '&formType=ACCOUNTING&searchToken=abc';
+    });
+  }
+  zeichne();
+  document.getElementById('nur-noetig').onclick = () => { document.getElementById('cookies').remove(); setTimeout(zeichne, 100); };
+</script>
 </body></html>

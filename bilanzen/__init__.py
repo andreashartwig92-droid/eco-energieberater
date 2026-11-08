@@ -1,12 +1,15 @@
-"""Bilanz-Radar: Jahresabschlüsse aus dem Bundesanzeiger abrufen, auswerten und eine Branche bewerten.
+"""Bilanz-Radar: Jahresabschlüsse direkt aus dem Unternehmensregister abrufen, auswerten und eine Branche bewerten.
 
 Module:
-  htmlbaum.py        kleiner HTML-Baum auf Basis der Standardbibliothek (html.parser)
-  bundesanzeiger.py  Suche im Bundesanzeiger, Trefferlisten, Dokumentabruf, Captcha-Erkennung
-  parser.py          Bilanz- und GuV-Posten aus einem Jahresabschluss (HTML) herauslesen
-  kennzahlen.py      Kennzahlen, Score und Begründung je Unternehmen
-  bewertung.py       Branchenbild über viele Unternehmen und Urteil zur Attraktivität
-  speicher.py        SQLite-Ablage
-  auftraege.py       Hintergrundaufträge (Suchen + Laden) mit Captcha-Pause
-  server.py          HTTP-Server und JSON-API für die Oberfläche in static/
+  unternehmensregister.py  Suche, Trefferliste, Blättern und Veröffentlichungen im Unternehmensregister (gesteuerter Browser)
+  modelle.py               gemeinsame Datenklassen (Treffer, Seite, Dokument, Sicherheitsabfrage)
+  htmlbaum.py              kleiner HTML-Baum auf Basis der Standardbibliothek (html.parser)
+  parser.py                Bilanz- und GuV-Posten aus einem Jahresabschluss (HTML) herauslesen
+  kennzahlen.py            Kennzahlen, Score und Begründung je Unternehmen
+  bewertung.py             Branchenurteil über viele Unternehmen
+  vorreiter.py             Rangliste der Vorreiter einer Branche
+  csv_import.py            Kennzahlen aus CSV-Dateien
+  speicher.py              SQLite-Ablage
+  auftraege.py             Hintergrundaufträge mit Pause und Stopp an der Sicherheitsabfrage
+  server.py                HTTP-Server und JSON-API für die Oberfläche in static/
 """

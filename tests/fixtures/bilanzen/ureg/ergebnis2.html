@@ -1,21 +1,23 @@
 <!DOCTYPE html>
-<html lang="de"><head><meta charset="utf-8"><title>Unternehmensregister – Suchergebnisse</title></head>
+<html lang="de"><head><meta charset="utf-8"><title>Suchergebnis</title></head>
 <body>
 <main>
-<h1>Suchergebnisse</h1>
-<p>3 Treffer</p>
-<ul class="resultList">
-  <li class="resultItem">
-    <h3 class="companyName">Dritte Energieberatung GmbH</h3>
-    <p>Sitz: Drittstadt</p>
-    <p>Veröffentlicht am 01.01.2024</p>
-    <a href="veroeffentlichung.html?id=3">Jahresabschluss zum Geschäftsjahr vom 01.01.2022 bis zum 31.12.2022</a>
-  </li>
-</ul>
-<nav aria-label="Seitennavigation">
-  <a aria-label="Springe eine Seite zurück" href="ergebnis.html">‹</a>
-  <a aria-label="Aktuell ausgewählte Seite: 2" aria-current="page" href="#">2</a>
-  <span aria-label="Springe eine Seite weiter" aria-disabled="true">›</span>
+<h1>Suchergebnis</h1>
+<div>2 Seiten</div>
+<table data-testid="searchResultTable">
+<thead><tr><th>Firma</th><th>Information</th><th>Bezeichnung</th></tr></thead>
+<tbody>
+<tr data-testid="companyHeader"><th><div><p data-testid="company-name">Dritte Energieberatung GmbH</p><p>Amtsgericht Drittstadt</p><p>HRB 3 </p></div></th>
+  <th data-testid="company-information"><div>Registerinformationen</div></th><th><div></div></th></tr>
+<tr><td data-testid="company"><div>Dritte Energieberatung GmbH, Drittstadt</div></td>
+  <td data-testid="information"><div><span>Rechnungs&shy;legung / Finanz&shy;berichte</span><br><span>Unternehmensregister</span></div></td>
+  <td data-testid="label"><div><div><a data-testid="normal-pub" href="veroeffentlichung.html?id=3">Jahresabschluss zum Geschäftsjahr vom 01.01.2023 bis zum 31.12.2023</a><span data-cy="searchResult-date">Datum: 01.10.2024</span></div></div></td></tr>
+</tbody>
+</table>
+<nav>
+  <button aria-label="Springe eine Seite zurück" onclick="history.back()">‹</button>
+  <button aria-label="Aktuell ausgewählte Seite: 2">2</button>
+  <button aria-label="Springe eine Seite weiter" disabled>›</button>
 </nav>
 </main>
 </body></html>

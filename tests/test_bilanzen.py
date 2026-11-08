@@ -1,5 +1,7 @@
 import http.client
 import json
+import os
+import unittest.mock
 import tempfile
 import threading
 import time
@@ -8,8 +10,7 @@ from pathlib import Path
 
 from bilanzen import bewertung, kennzahlen
 from bilanzen.auftraege import Verwalter
-from bilanzen.bundesanzeiger import (CaptchaNoetig, Dokument, Seite, Treffer, erkenne_captcha, geschaeftsjahr_aus_titel,
-                                     parse_trefferseite)
+from bilanzen.modelle import CaptchaNoetig, Dokument, Seite, Treffer, geschaeftsjahr_aus_titel
 from bilanzen.htmlbaum import parse
 from bilanzen.konfig import Konfig
 from bilanzen.parser import normalisiere, ordne_posten, parse_jahresabschluss, zahl, zerlege_zeile
@@ -36,20 +37,7 @@ class HtmlBaum(unittest.TestCase):
         self.assertIn("vier", b.text())
 
 
-class Trefferliste(unittest.TestCase):
-    def test_parse(self):
-        s = parse_trefferseite(lies("trefferliste.html"), "https://www.bundesanzeiger.de/pub/de/suchen2?3")
-        self.assertEqual(s.nummer, 1)
-        self.assertEqual(s.anzahl_treffer, 759)
-        self.assertEqual(len(s.treffer), 3)
-        t = s.treffer[0]
-        self.assertEqual(t.name, "Beispiel Energieberatung 1 GmbH")
-        self.assertEqual(t.ort, "Musterort 1")
-        self.assertTrue(t.ist_jahresabschluss)
-        self.assertTrue(t.link.startswith("https://www.bundesanzeiger.de/pub/de/suchen2?3-1.-search~table~panel-rows-0-"))
-        self.assertEqual(t.datum, "27.06.2025")
-        self.assertEqual(s.naechste_url, "https://www.bundesanzeiger.de/pub/de/suchen2?3-1.-top~nav-pager-next")
-
+class Modelle(unittest.TestCase):
     def test_geschaeftsjahr(self):
         self.assertEqual(geschaeftsjahr_aus_titel("Jahresabschluss zum Geschäftsjahr vom 01.06.2020 bis zum 31.05.2021"), ("2020-06-01", "2021-05-31"))
         self.assertEqual(geschaeftsjahr_aus_titel("Jahresabschluss zum 31.12.2019"), ("", "2019-12-31"))
@@ -58,17 +46,7 @@ class Trefferliste(unittest.TestCase):
     def test_hinterlegung_ohne_link(self):
         t = Treffer(name="X GmbH", ort="Y", titel="Jahresabschluss zum Geschäftsjahr vom 01.01.2021 bis zum 31.12.2021", link="", datum="")
         self.assertFalse(t.ist_jahresabschluss)
-
-
-class Captcha(unittest.TestCase):
-    def test_erkennen(self):
-        c = erkenne_captcha(parse(lies("captcha.html")), "https://www.bundesanzeiger.de/pub/de/suchergebnis?4")
-        self.assertIsNotNone(c)
-        self.assertIn("captcha_image", c["bild_url"])
-        self.assertEqual(c["formular_url"], "https://www.bundesanzeiger.de/pub/de/suchergebnis?4-1.-captcha~panel-captcha_form")
-
-    def test_kein_captcha(self):
-        self.assertIsNone(erkenne_captcha(parse(lies("jahresabschluss_gmbh.html")), "https://x/"))
+        self.assertEqual(t.quelle, "unternehmensregister")
 
 
 class Parser(unittest.TestCase):
@@ -215,9 +193,9 @@ class SpeicherTest(unittest.TestCase):
 
 
 class FakeClient:
-    """Spielt den Bundesanzeiger: zwei Treffer, der erste verlangt einmal ein Captcha."""
+    """Spielt das Unternehmensregister: drei Treffer, der erste verlangt einmal die Bestätigung „Ich bin ein Mensch“."""
 
-    def __init__(self, loesung="ABC123"):
+    def __init__(self, loesung="bestaetigt"):
         self.loesung = loesung
         self.anfragen = 0
         self.captcha_gesendet = 0
@@ -238,14 +216,15 @@ class FakeClient:
     def dokument(self, treffer):
         self.anfragen += 1
         if treffer.link.endswith("/1") and self.captcha_gesendet == 0:
-            raise CaptchaNoetig(bild=b"\x89PNG...", bild_typ="image/png", formular_url="https://x/captcha", seite_url=treffer.link)
+            raise CaptchaNoetig(bild=b"\x89PNG...", bild_typ="image/png", formular_url="https://x/captcha", seite_url=treffer.link, art="bestaetigen")
         return Dokument(html=lies("jahresabschluss_gmbh.html" if treffer.link.endswith("/1") else "jahresabschluss_kleinst.html"), url=treffer.link)
 
     def captcha_loesen(self, captcha, loesung):
         self.anfragen += 1
         self.captcha_gesendet += 1
         if loesung != self.loesung:
-            raise CaptchaNoetig(bild=b"\x89PNG...", bild_typ="image/png", formular_url="https://x/captcha", seite_url=captcha.seite_url, versuch=captcha.versuch + 1)
+            raise CaptchaNoetig(bild=b"\x89PNG...", bild_typ="image/png", formular_url="https://x/captcha", seite_url=captcha.seite_url,
+                                versuch=captcha.versuch + 1, art="bestaetigen")
         return Dokument(html=lies("jahresabschluss_gmbh.html"), url=captcha.seite_url)
 
 
@@ -268,9 +247,11 @@ class Auftraege(unittest.TestCase):
             self.assertTrue(warte_bis(lambda: a.zustand == "captcha"))
             d = a.als_dict()
             self.assertTrue(d["captcha_bild"].startswith("data:image/png;base64,"))
-            v.captcha_beantworten(a.id, "falsch")
+            self.assertEqual(d["captcha_art"], "bestaetigen")
+            self.assertIn("Muster Energieberatung GmbH", d["captcha_treffer"])
+            v.captcha_beantworten(a.id, "nein")
             self.assertTrue(warte_bis(lambda: a.captcha_versuche == 1 and a.zustand == "captcha"))
-            v.captcha_beantworten(a.id, "ABC123")
+            v.captcha_beantworten(a.id, "bestaetigt")
             self.assertTrue(warte_bis(lambda: a.zustand == "fertig"))
             self.assertEqual(a.geladen, 2)
             self.assertEqual(a.uebersprungen, 1)  # nur hinterlegt
@@ -288,6 +269,18 @@ class Auftraege(unittest.TestCase):
             self.assertTrue(c.treffer_liste[0]["vorhanden"])
         finally:
             v.stoppen()
+
+    def test_ab_jahr_ueberspringt_alte_abschluesse(self):
+        s = Speicher(":memory:")
+        v = Verwalter(s, client_fabrik=lambda: FakeClient())
+        try:
+            a = v.anlegen(["Energieberatung"], ab_jahr=2022)  # alle Treffer sind von 2021
+            self.assertTrue(warte_bis(lambda: a.zustand == "fertig"))
+            self.assertEqual((a.geladen, a.uebersprungen, a.captcha_versuche), (0, 3, 0))
+            self.assertEqual(a.als_dict()["ab_jahr"], 2022)
+        finally:
+            v.stoppen()
+            s.schliessen()
 
     def test_abbrechen_im_captcha(self):
         s = Speicher(":memory:")
@@ -349,12 +342,13 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(status, 201)
         self.assertEqual(imp["abschluss"]["firma"], "Klein Energieberatung UG (haftungsbeschränkt)")
 
-        status, auftrag = self.anfrage("POST", "/api/auftraege", {"begriffe": "Energieberatung\nEnergieberater", "max_seiten": 1, "quelle": "bundesanzeiger"})
+        status, auftrag = self.anfrage("POST", "/api/auftraege", {"begriffe": "Energieberatung\nEnergieberater", "max_seiten": 1})
         self.assertEqual(status, 201)
         self.assertEqual(auftrag["begriffe"], ["Energieberatung", "Energieberater"])
         aid = auftrag["id"]
         self.assertTrue(warte_bis(lambda: self.anfrage("GET", f"/api/auftraege/{aid}")[1]["zustand"] == "captcha"))
-        status, _ = self.anfrage("POST", f"/api/auftraege/{aid}/captcha", {"loesung": "ABC123"})
+        self.assertEqual(self.anfrage("GET", f"/api/auftraege/{aid}")[1]["captcha_art"], "bestaetigen")
+        status, _ = self.anfrage("POST", f"/api/auftraege/{aid}/captcha", {"loesung": "bestaetigt"})
         self.assertEqual(status, 200)
         self.assertTrue(warte_bis(lambda: self.anfrage("GET", f"/api/auftraege/{aid}")[1]["zustand"] == "fertig"))
 
@@ -389,17 +383,9 @@ class ServerTest(unittest.TestCase):
 
         status, antwort = self.anfrage("POST", "/api/auftraege", {"begriffe": []})
         self.assertEqual(status, 400)
-        # Automatik: ohne Schlüssel und ohne Browser gibt es eine klare Meldung statt eines Auftrags
-        with unittest.mock.patch.dict(os.environ, {"OPENREGISTER_API_KEY": "", "BILANZ_OPENREGISTER_KEY": ""}), \
-                unittest.mock.patch("bilanzen.unternehmensregister.verfuegbar", return_value=(False, "playwright fehlt")):
-            status, antwort = self.anfrage("POST", "/api/auftraege", {"begriffe": ["x"]})
-            self.assertEqual(status, 400)
-            self.assertIn("OPENREGISTER_API_KEY", antwort["fehler"])
-            status, info = self.anfrage("GET", "/api/info")
-            self.assertEqual(info["quelle_standard"], "")
-        with unittest.mock.patch.dict(os.environ, {"OPENREGISTER_API_KEY": "abc"}):
-            status, info = self.anfrage("GET", "/api/info")
-            self.assertEqual(info["quelle_standard"], "openregister")
+        status, info = self.anfrage("GET", "/api/info")
+        self.assertEqual(info["quelle_standard"], "unternehmensregister")
+        self.assertEqual(list(info["quellen"]), ["unternehmensregister"])
         status, antwort = self.anfrage("GET", "/api/auftraege/gibtsnicht")
         self.assertEqual(status, 404)
 
@@ -461,7 +447,8 @@ class _Stumm(http.server.SimpleHTTPRequestHandler):
 
 @unittest.skipUnless(_browser_moeglich(), "Playwright oder Chromium fehlt")
 class UnternehmensregisterBrowser(unittest.TestCase):
-    """Spielt den Ablauf gegen eine lokale Nachbildung der Seite durch (Formular, Trefferliste, Blättern, Captcha, Dokument)."""
+    """Spielt den Ablauf gegen eine lokale Nachbildung der Registerseite durch (Cookie-Dialog, Formular, Trefferliste, Blättern,
+    Sicherheitsabfrage „Ich bin ein Mensch“, Dokument)."""
 
     @classmethod
     def setUpClass(cls):
@@ -481,13 +468,15 @@ class UnternehmensregisterBrowser(unittest.TestCase):
             client.suche_url = self.basis + "/suche.html"
             try:
                 seite = client.suche("Energieberatung")
-                self.assertEqual(seite.anzahl_treffer, 3)
+                self.assertEqual(seite.anzahl_seiten, 2)
                 self.assertEqual([t.name for t in seite.treffer], ["Muster Energieberatung GmbH", "Klein Energieberatung UG (haftungsbeschränkt)"])
-                self.assertEqual(seite.treffer[0].ort, "Musterstadt")
-                self.assertEqual(seite.treffer[0].datum, "12.03.2024")
-                self.assertEqual(seite.treffer[0].quelle, "unternehmensregister")
-                self.assertTrue(seite.treffer[0].ist_jahresabschluss)
-                self.assertTrue(seite.treffer[0].link.endswith("veroeffentlichung.html?id=1"))
+                t = seite.treffer[0]
+                self.assertEqual((t.ort, t.datum, t.quelle, t.herkunft), ("Musterstadt", "12.03.2024", "unternehmensregister", "Unternehmensregister"))
+                self.assertEqual(t.register, "Amtsgericht Musterstadt HRB 12345")
+                self.assertEqual(t.bereich, "Rechnungslegung / Finanzberichte")
+                self.assertEqual(seite.treffer[1].herkunft, "Bundesanzeiger")
+                self.assertTrue(t.ist_jahresabschluss)
+                self.assertTrue(t.link.endswith("veroeffentlichung.html?id=1"))
                 self.assertEqual(seite.nummer, 1)
                 self.assertTrue(seite.naechste_url)
 
@@ -500,12 +489,11 @@ class UnternehmensregisterBrowser(unittest.TestCase):
                 with self.assertRaises(CaptchaNoetig) as cm:
                     client.dokument(seite.treffer[0])
                 self.assertTrue(cm.exception.bild.startswith(b"\x89PNG"))
-                self.assertEqual(cm.exception.versuch, 1)
-                with self.assertRaises(CaptchaNoetig) as cm2:
-                    client.captcha_loesen(cm.exception, "falsch")
-                self.assertEqual(cm2.exception.versuch, 2)
-                dok = client.captcha_loesen(cm2.exception, "7k3p")
+                self.assertEqual((cm.exception.versuch, cm.exception.art), (1, "bestaetigen"))
+                # erst nach der menschlichen Bestätigung klickt der Browser das Kästchen
+                dok = client.captcha_loesen(cm.exception, "bestaetigt")
                 self.assertIn("publication_container", dok.html)
+                self.assertNotIn("companyName", dok.html)  # Suchformular gehört nicht ins Dokument
                 a = parse_jahresabschluss(dok.html)
                 self.assertEqual(a.posten["bilanzsumme"], [750000.0, 667260.45])
                 self.assertEqual(a.posten["umsatz"], [1400000.0, 1284500.0])
@@ -522,22 +510,28 @@ class UnternehmensregisterVerwaltung(unittest.TestCase):
         fake = FakeClient()
         fake.schliessen_aufgerufen = False
         fake.schliessen = lambda: setattr(fake, "schliessen_aufgerufen", True)
-        v = Verwalter(s, client_fabriken={"unternehmensregister": lambda: fake, "bundesanzeiger": lambda: FakeClient()})
+        v = Verwalter(s, client_fabrik=lambda: fake)
         try:
-            with unittest.mock.patch.object(ureg, "verfuegbar", return_value=(True, "")):
-                a = v.anlegen(["Energieberatung"], max_seiten=1, quelle="unternehmensregister")
+            a = v.anlegen(["Energieberatung"], max_seiten=1)
             self.assertEqual(a.als_dict()["quelle"], "unternehmensregister")
             self.assertTrue(warte_bis(lambda: a.zustand == "captcha"))
-            v.captcha_beantworten(a.id, "ABC123")
+            v.captcha_beantworten(a.id, "bestaetigt")
             self.assertTrue(warte_bis(lambda: a.zustand == "fertig"))
             self.assertEqual(a.geladen, 2)
             self.assertTrue(fake.schliessen_aufgerufen)
             self.assertEqual({f["quelle"] for f in s.firmen("Energieberatung")}, {"unternehmensregister"})
+        finally:
+            v.stoppen()
+            s.schliessen()
+
+    def test_ohne_playwright_klare_meldung(self):
+        s = Speicher(":memory:")
+        v = Verwalter(s)  # echter Browser-Client
+        try:
             with unittest.mock.patch.object(ureg, "verfuegbar", return_value=(False, "playwright fehlt")):
-                with self.assertRaises(ValueError):
-                    v.anlegen(["x"], quelle="unternehmensregister")
-            with self.assertRaises(ValueError):
-                v.anlegen(["x"], quelle="irgendwas")
+                with self.assertRaises(ValueError) as cm:
+                    v.anlegen(["x"])
+            self.assertIn("playwright", str(cm.exception))
         finally:
             v.stoppen()
             s.schliessen()
@@ -641,125 +635,3 @@ class ServerVorreiterCsv(ServerTest):
         self.assertEqual(v["rangliste"][0]["rang"], 1)
         status, fehler = self.anfrage("POST", "/api/import-csv", {"dateiname": "x.csv", "text": "a;b\n1;2\n"})
         self.assertEqual(status, 400)
-
-
-# --- OpenRegister (Schnittstelle) -----------------------------------------------------------------
-
-from bilanzen import openregister
-
-
-class FakeOpenRegister(openregister.Client):
-    """Beantwortet die API-Aufrufe aus den Fixtures und protokolliert sie."""
-
-    def __init__(self, **kw):
-        super().__init__(api_key="test-schluessel", pause=0, **kw)
-        self.aufrufe = []
-
-    def _anfrage(self, methode, pfad, daten=None, roh=False, basis=None):
-        self.aufrufe.append((methode, pfad, daten, basis))
-        self.anfragen += 1
-        if roh:
-            return b"<html><body><div class=\"publication_container\"><h1>Original</h1></div></body></html>"
-        if pfad == "/v1/search/company":
-            antwort = json.loads(lies("openregister_suche.json"))
-            seite = (daten.get("pagination") or {}).get("page", 1)
-            if seite > 1:
-                antwort["results"] = []
-            antwort["pagination"]["page"] = seite
-            return antwort
-        if pfad.endswith("/financials"):
-            if "99001" in pfad:
-                return {"reports": [], "indicators": [], "merged": None, "estimates": {"revenue": None, "ebitda": None, "employees": None}}
-            return json.loads(lies("openregister_finanzen.json"))
-        raise AssertionError(pfad)
-
-
-class OpenRegisterTest(unittest.TestCase):
-    def test_abschluesse_aus_antwort(self):
-        liste = openregister.abschluesse_aus_antwort(json.loads(lies("openregister_finanzen.json")), firma="Muster Energieberatung GmbH")
-        self.assertEqual([a.gj_bis for a, _, _ in liste], ["2023-12-31", "2022-12-31"])
-        a23 = liste[0][0]
-        self.assertEqual(a23.posten["bilanzsumme"], [750000.0, 667260.45])
-        self.assertEqual(a23.posten["umsatz"], [1400000.0, None])  # Vorjahr ohne GuV
-        self.assertEqual(a23.posten["eigenkapital"], [380000.0, 312480.12])
-        self.assertEqual(a23.posten["personalaufwand"], [-800000.0, None])
-        self.assertEqual(a23.posten["jahresueberschuss"][0], 67519.88)
-        self.assertEqual(a23.mitarbeiter, 12)
-        self.assertTrue(a23.guv_vorhanden)
-        self.assertEqual(a23.gj_von, "2023-01-01")
-        self.assertEqual(a23.rechtsform, "GmbH")
-        self.assertEqual(liste[0][2], "https://files.example.test/reports/2023.html")
-        a22 = liste[1][0]
-        self.assertFalse(a22.guv_vorhanden)
-        self.assertTrue(any("schätzt den Umsatz" in h for h in a22.hinweise))
-        k = kennzahlen.berechne(a23)
-        self.assertAlmostEqual(k["umsatzrendite"], 67519.88 / 1400000.0)
-        self.assertAlmostEqual(k["eigenkapitalquote"], 380000.0 / 750000.0)
-        self.assertAlmostEqual(k["wachstum_bilanzsumme"], 750000.0 / 667260.45 - 1)
-
-    def test_client_suche_und_finanzen(self):
-        c = FakeOpenRegister(suchfeld="zweck", ort="Hamburg, Kiel")
-        seite = c.suche("Energieberatung, Energieberater")
-        self.assertEqual(len(seite.treffer), 2)
-        self.assertEqual(seite.anzahl_treffer, 51)
-        self.assertTrue(seite.naechste_url)
-        self.assertEqual(seite.treffer[0].link, "DE-HRB-F1103-267645")
-        self.assertEqual(seite.treffer[0].quelle, "openregister")
-        self.assertTrue(seite.treffer[0].ist_jahresabschluss)
-        methode, pfad, daten, _ = c.aufrufe[0]
-        self.assertEqual((methode, pfad), ("POST", "/v1/search/company"))
-        self.assertIn({"field": "purpose", "keywords": ["Energieberatung", "Energieberater"]}, daten["filters"])
-        self.assertIn({"field": "status", "value": "active"}, daten["filters"])
-        self.assertIn({"field": "city", "values": ["Hamburg", "Kiel"]}, daten["filters"])
-        seite2 = c.naechste_seite(seite)
-        self.assertEqual(seite2.nummer, 2)
-        self.assertEqual(seite2.treffer, [])
-        self.assertEqual(seite2.naechste_url, "")
-        liste = c.abschluesse(seite.treffer[0])
-        self.assertEqual(len(liste), 2)
-        self.assertIn("publication_container", liste[0][1])  # Originaldokument für das jüngste Jahr
-        self.assertEqual(liste[1][1], "")
-        self.assertEqual(c.kontingent.punkte, 2 * 10 + 10)
-        self.assertEqual(FakeOpenRegister(suchfeld="name").suche("Muster") and FakeOpenRegister(suchfeld="name")._filter("Muster")["query"], {"value": "Muster"})
-        self.assertEqual(FakeOpenRegister(suchfeld="branche")._filter("71.12, 74.90")["filters"][0], {"field": "industry_codes", "values": ["71.12", "74.90"]})
-
-    def test_verwalter_mit_openregister(self):
-        s = Speicher(":memory:")
-        fake = FakeOpenRegister()
-        v = Verwalter(s, client_fabriken={"openregister": lambda optionen=None: fake, "bundesanzeiger": lambda: FakeClient()})
-        try:
-            with unittest.mock.patch.dict(os.environ, {"OPENREGISTER_API_KEY": "test"}):
-                a = v.anlegen(["Energieberatung"], max_seiten=1, quelle="openregister", optionen={"suchfeld": "zweck"})
-            self.assertTrue(warte_bis(lambda: a.zustand == "fertig"))
-            self.assertEqual(a.geladen, 2)       # zwei Jahre der GmbH
-            self.assertEqual(a.uebersprungen, 1)  # UG ohne veröffentlichte Finanzdaten
-            self.assertEqual(a.fehler, 0)
-            self.assertIn("OpenRegister-Punkte", a.meldung)
-            firmen = s.firmen("Energieberatung")
-            self.assertEqual(len(firmen), 2)
-            gmbh = next(f for f in firmen if f["name"].startswith("Muster"))
-            self.assertEqual(gmbh["anzahl_abschluesse"], 2)
-            self.assertEqual(gmbh["quelle"], "openregister")
-            self.assertEqual(gmbh["gj_bis"], "2023-12-31")
-            self.assertEqual([x["gj_bis"] for x in gmbh["verlauf"]], ["2022-12-31", "2023-12-31"])
-            detail = s.firma(gmbh["id"])
-            self.assertTrue(detail["abschluesse"][0]["roh_vorhanden"])
-            # zweiter Lauf: Firma bereits aus dieser Quelle vorhanden → kein weiterer Punkteverbrauch
-            with unittest.mock.patch.dict(os.environ, {"OPENREGISTER_API_KEY": "test"}):
-                b = v.anlegen(["Energieberatung"], max_seiten=1, quelle="openregister")
-            self.assertTrue(warte_bis(lambda: b.zustand == "fertig"))
-            self.assertEqual((b.geladen, b.uebersprungen), (0, 2))
-            with unittest.mock.patch.dict(os.environ, {"OPENREGISTER_API_KEY": ""}):
-                with self.assertRaises(ValueError):
-                    v.anlegen(["x"], quelle="openregister")
-        finally:
-            v.stoppen()
-            s.schliessen()
-
-    def test_verfuegbar(self):
-        with unittest.mock.patch.dict(os.environ, {"OPENREGISTER_API_KEY": "", "BILANZ_OPENREGISTER_KEY": ""}):
-            ok, grund = openregister.verfuegbar()
-            self.assertFalse(ok)
-            self.assertIn("openregister.de/keys", grund)
-        with unittest.mock.patch.dict(os.environ, {"OPENREGISTER_API_KEY": "abc"}):
-            self.assertEqual(openregister.verfuegbar(), (True, ""))

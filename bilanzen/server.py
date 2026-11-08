@@ -5,11 +5,9 @@ Routen (JSON, Anmeldung über Header `Authorization: Bearer <BILANZ_PASSWORT>`, 
   GET  /gesund                        Health-Check
   GET  /api/info                      Name, Passwortpflicht, Statistik, Suchbegriffe
   GET  /api/auftraege                 alle Aufträge
-  POST /api/auftraege                 {begriffe: [...], max_seiten, nur_neue, nur_liste, quelle, optionen} → neuer Auftrag
-                                      quelle: "auto" (Standard: OpenRegister, sonst Unternehmensregister), "openregister",
-                                      "unternehmensregister", "bundesanzeiger"; optionen: {suchfeld: zweck|name|branche, nur_aktive, ort}
+  POST /api/auftraege                 {begriffe: [...], max_seiten, nur_neue, nur_liste, ab_jahr} → neuer Auftrag im Unternehmensregister
   GET  /api/auftraege/<id>            Zustand (inkl. Captcha-Bild als data-URL, wenn offen)
-  POST /api/auftraege/<id>/captcha    {loesung}
+  POST /api/auftraege/<id>/captcha    {loesung} – "bestaetigt", wenn ein Mensch „Ich bin ein Mensch“ bestätigt hat
   POST /api/auftraege/<id>/abbrechen
   GET  /api/firmen?suchbegriff=       Firmenliste mit Kennzahlen des jüngsten Abschlusses
   GET  /api/firmen/<id>               Firma mit allen Abschlüssen, Posten und Kennzahlen
@@ -59,22 +57,15 @@ class Anwendung:
         self.verwalter = verwalter or Verwalter(self.speicher, pause=konfig.pause, chromium_pfad=konfig.chromium)
 
     def quellen(self):
-        from .openregister import verfuegbar as or_verfuegbar
         from .unternehmensregister import verfuegbar
         ok, grund = verfuegbar(self.konfig.chromium)
-        or_ok, or_grund = or_verfuegbar()
-        return {"openregister": {"bereit": or_ok, "hinweis": or_grund or "Bilanz, GuV und Kennzahlen aller veröffentlichten Jahre je Firma, Suche im "
-                                                                     "Unternehmensgegenstand, ohne Captcha (10 Punkte je Suchseite und je Firma)"},
-                "unternehmensregister": {"bereit": ok, "hinweis": grund or "Offenlegungen ab Geschäftsjahr 2022 direkt vom Register, gesteuerter Browser"},
-                "bundesanzeiger": {"bereit": True, "hinweis": "Altbestand bis Geschäftsjahr 2021, nur über die Kommandozeile"}}
+        if getattr(self.verwalter, "_eigene_fabrik", False):  # Tests mit Attrappe
+            ok, grund = True, ""
+        return {"unternehmensregister": {"bereit": ok, "hinweis": grund or "Suche und Abruf direkt im Unternehmensregister (alle offengelegten "
+                                                                       "Jahresabschlüsse, auch die älteren aus dem Bundesanzeiger)"}}
 
     def quelle_standard(self):
-        """Automatische Wahl: Schnittstelle, wenn ein Schlüssel da ist, sonst das Unternehmensregister im Browser; leer, wenn nichts bereit ist."""
-        q = self.quellen()
-        for name in ("openregister", "unternehmensregister"):
-            if q[name]["bereit"]:
-                return name
-        return ""
+        return "unternehmensregister" if self.quellen()["unternehmensregister"]["bereit"] else ""
 
     def angemeldet(self, header_wert):
         if not self.konfig.passwort_noetig:
@@ -242,17 +233,11 @@ class Handler(BaseHTTPRequestHandler):
                     begriffe = re.split(r"[\n;,]+", begriffe)
                 if not isinstance(begriffe, list):
                     raise ValueError("begriffe fehlt")
-                quelle = str(daten.get("quelle") or "auto")
-                if quelle == "auto":
-                    quelle = self.app.quelle_standard()
-                    if not quelle:
-                        raise ValueError("Keine Datenquelle bereit: OPENREGISTER_API_KEY setzen (openregister.de/keys) oder Playwright für das "
-                                         "Unternehmensregister einrichten (pip install -r requirements-bilanzen.txt).")
+                if not self.app.quelle_standard():
+                    raise ValueError("Unternehmensregister nicht nutzbar: " + self.app.quellen()["unternehmensregister"]["hinweis"])
                 a = self.app.verwalter.anlegen(
                     [str(b) for b in begriffe], max_seiten=daten.get("max_seiten", self.app.konfig.max_seiten_standard),
-                    nur_neue=daten.get("nur_neue", True), nur_liste=daten.get("nur_liste", False),
-                    quelle=quelle,
-                    optionen=daten.get("optionen") if isinstance(daten.get("optionen"), dict) else None)
+                    nur_neue=daten.get("nur_neue", True), nur_liste=daten.get("nur_liste", False), ab_jahr=daten.get("ab_jahr") or 0)
                 return self._json(HTTPStatus.CREATED, a.als_dict())
             m = re.fullmatch(r"/api/auftraege/([0-9a-f]+)/captcha", pfad)
             if m:

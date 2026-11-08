@@ -1,7 +1,6 @@
 """Aufruf:
   python -m bilanzen                                   Webserver (Oberfläche) starten, http://127.0.0.1:8081
-  python -m bilanzen suche "Energieberatung" [--seiten 3] [--nur-liste] [--quelle unternehmensregister]
-  python -m bilanzen suche "Energieberatung" --quelle openregister [--suchfeld zweck|name|branche] [--ort Hamburg]
+  python -m bilanzen suche "Energieberatung" [--seiten 3] [--nur-liste]   im Unternehmensregister suchen und laden
   python -m bilanzen diagnose "Energieberatung" [--sichtbar]   Unternehmensregister Schritt für Schritt prüfen
   python -m bilanzen import datei.html [...] [--suchbegriff Energieberatung]
   python -m bilanzen bericht [--suchbegriff Energieberatung]
@@ -20,20 +19,16 @@ from .konfig import Konfig
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Bilanz-Radar: Jahresabschlüsse aus dem Bundesanzeiger auswerten")
+    ap = argparse.ArgumentParser(description="Bilanz-Radar: Jahresabschlüsse aus dem Unternehmensregister auswerten")
     sub = ap.add_subparsers(dest="befehl")
     sub.add_parser("server", help="Webserver starten (Standard)")
-    s = sub.add_parser("suche", help="Suchbegriff abfragen und Abschlüsse laden (Captcha im Terminal lösen)")
+    s = sub.add_parser("suche", help="Im Unternehmensregister suchen und Abschlüsse laden (Sicherheitsabfrage im Terminal bestätigen)")
     s.add_argument("begriffe", nargs="+")
     s.add_argument("--seiten", type=int, default=None, help="Trefferseiten je Begriff (0 = alle)")
     s.add_argument("--nur-liste", action="store_true", help="nur Treffer anzeigen, nichts laden")
     s.add_argument("--auch-vorhandene", action="store_true", help="bereits gespeicherte Abschlüsse erneut laden")
-    s.add_argument("--quelle", choices=("auto", "openregister", "unternehmensregister", "bundesanzeiger"), default="auto",
-                   help="auto = OpenRegister-Schnittstelle, wenn OPENREGISTER_API_KEY gesetzt ist, sonst Unternehmensregister")
-    s.add_argument("--suchfeld", choices=("zweck", "name", "branche"), default="zweck", help="OpenRegister: Unternehmensgegenstand, Firmenname oder WZ-Code")
-    s.add_argument("--ort", default="", help="OpenRegister: auf Orte eingrenzen (Komma-getrennt)")
-    s.add_argument("--auch-inaktive", action="store_true", help="OpenRegister: auch gelöschte/inaktive Firmen")
-    d = sub.add_parser("diagnose", help="Unternehmensregister: Suche, Trefferliste und erste Veröffentlichung bis zum Captcha durchspielen")
+    s.add_argument("--ab-jahr", type=int, default=0, help="nur Geschäftsjahre ab diesem Jahr laden (spart Bestätigungen)")
+    d = sub.add_parser("diagnose", help="Unternehmensregister: Suche, Trefferliste und erste Veröffentlichung bis zur Sicherheitsabfrage durchspielen")
     d.add_argument("begriff")
     d.add_argument("--sichtbar", action="store_true", help="Browserfenster anzeigen statt unsichtbar laufen zu lassen")
     d.add_argument("--ordner", default=None, help="Ablage für Bildschirmfotos und Seitenquelltexte (Standard: daten/diagnose)")
@@ -70,8 +65,7 @@ def main(argv=None):
     speicher = Speicher(konfig.datenbank)
     if args.befehl == "suche":
         return suche(konfig, speicher, args.begriffe, args.seiten if args.seiten is not None else konfig.max_seiten_standard,
-                     args.nur_liste, not args.auch_vorhandene, args.quelle,
-                     {"suchfeld": args.suchfeld, "ort": args.ort, "nur_aktive": not args.auch_inaktive})
+                     args.nur_liste, not args.auch_vorhandene, args.ab_jahr)
     if args.befehl == "diagnose":
         from .unternehmensregister import diagnose
         ordner = Path(args.ordner) if args.ordner else Path(konfig.datenbank).parent / "diagnose"
@@ -104,19 +98,15 @@ def main(argv=None):
     return 0
 
 
-def suche(konfig, speicher, begriffe, seiten, nur_liste, nur_neue, quelle="bundesanzeiger", optionen=None):
-    """Wie der Hintergrundauftrag, aber im Vordergrund; Captcha-Bild wird als Datei abgelegt und abgefragt."""
+def suche(konfig, speicher, begriffe, seiten, nur_liste, nur_neue, ab_jahr=0):
+    """Wie der Hintergrundauftrag, aber im Vordergrund; die Sicherheitsabfrage wird als Bild abgelegt und im Terminal bestätigt."""
     import time
 
     from .auftraege import Verwalter
 
     verwalter = Verwalter(speicher, pause=konfig.pause, chromium_pfad=konfig.chromium or None)
-    if quelle == "auto":
-        from .openregister import verfuegbar as or_verfuegbar
-        quelle = "openregister" if or_verfuegbar()[0] else "unternehmensregister"
-        print(f"Datenquelle: {quelle}")
     try:
-        a = verwalter.anlegen(begriffe, max_seiten=seiten, nur_neue=nur_neue, nur_liste=nur_liste, quelle=quelle, optionen=optionen)
+        a = verwalter.anlegen(begriffe, max_seiten=seiten, nur_neue=nur_neue, nur_liste=nur_liste, ab_jahr=ab_jahr)
     except ValueError as e:
         print(e, file=sys.stderr)
         verwalter.stoppen()
@@ -129,9 +119,16 @@ def suche(konfig, speicher, begriffe, seiten, nur_liste, nur_neue, quelle="bunde
             gesehen = len(a.protokoll)
             if a.zustand == "captcha" and a.captcha is not None:
                 endung = ".png" if "png" in a.captcha.bild_typ else ".jpg"
-                pfad = Path(konfig.datenbank).parent / ("captcha" + endung)
+                pfad = Path(konfig.datenbank).parent / ("sicherheitsabfrage" + endung)
                 pfad.write_bytes(a.captcha.bild)
-                loesung = input(f"Sicherheitsabfrage: Bild in {pfad} öffnen und Zeichen eingeben: ")
+                if a.captcha.art == "bestaetigen":
+                    eingabe = input(f"Sicherheitsabfrage „Ich bin ein Mensch“ für {a.captcha_treffer} (Bild: {pfad}). Mit Enter bestätigen, "
+                                    "„a“ bricht ab: ")
+                    if eingabe.strip().lower() == "a":
+                        raise KeyboardInterrupt
+                    loesung = "bestaetigt"
+                else:
+                    loesung = input(f"Sicherheitsabfrage: Bild in {pfad} öffnen und Zeichen eingeben: ")
                 verwalter.captcha_beantworten(a.id, loesung)
                 time.sleep(0.5)
             time.sleep(0.5)
