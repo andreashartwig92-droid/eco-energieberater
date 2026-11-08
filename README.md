@@ -233,17 +233,44 @@ bilanzen/
   eine verkürzte Bilanz ohne GuV. Umsatz und Marge sind dann nicht ablesbar; das Werkzeug schätzt das Jahresergebnis
   aus der Veränderung des Eigenkapitals (Untergrenze, da Ausschüttungen nicht sichtbar sind) und kennzeichnet das.
 - **Zeitverzug:** Abschlüsse werden bis zu zwölf Monate nach Geschäftsjahresende veröffentlicht.
-- **Datenstand im Bundesanzeiger:** Seit dem 1. August 2022 werden Jahresabschlüsse im
+- **Zwei Quellen:** Seit dem 1. August 2022 werden Jahresabschlüsse im
   [Unternehmensregister](https://www.unternehmensregister.de) offengelegt; im Bundesanzeiger stehen die
-  Veröffentlichungen bis dahin (Geschäftsjahre bis etwa 2021, Nachzügler auch später). Neuere Abschlüsse öffnen Sie
-  im Unternehmensregister, speichern die Seite als HTML und laden sie über „Importieren“ hoch (oder
-  `python3 -m bilanzen import`). Sie werden genauso ausgewertet und der Branche zugeordnet.
+  Veröffentlichungen bis dahin (Geschäftsjahre bis etwa 2021, Nachzügler auch später). Für ein aktuelles Bild
+  gehören beide Quellen zusammen: Bundesanzeiger für die Jahre bis 2021, Unternehmensregister ab 2022 (siehe unten).
+  Daneben lassen sich einzelne Abschlüsse als HTML-Datei importieren („Importieren“ oder `python3 -m bilanzen import`).
 - **Wer fehlt:** Einzelunternehmer, Freiberufler und GbRs veröffentlichen nicht. Das Bild zeigt die
   Kapitalgesellschaften der Branche.
 - Der Parser ist auf die üblichen Formen der Veröffentlichung ausgelegt (Tabellen mit Berichts- und Vorjahresspalte,
   Fließtext, EUR oder TEUR). Bei ungewöhnlichen Dokumenten fehlen Posten; die Firma zeigt dann Hinweise und die
   Datenlage „eingeschränkt“ oder „gering“. Nach Parser-Verbesserungen wertet „Neu auswerten“ alle gespeicherten
   Dokumente erneut aus, ohne sie neu zu laden.
+
+### Quelle Unternehmensregister (ab Geschäftsjahr 2022)
+
+Das Unternehmensregister ist eine reine JavaScript-Anwendung: Suche und Trefferliste entstehen erst im Browser,
+Veröffentlichungen stehen hinter einer Sicherheitsabfrage, und zu viele Abrufe sperren die IP-Adresse. Das
+Werkzeug bedient die Seite deshalb mit einem gesteuerten Chromium (Playwright) genauso wie ein Mensch: Formular
+ausfüllen, blättern, Veröffentlichung öffnen, Captcha-Bild in die Oberfläche durchreichen. Einrichtung:
+
+```bash
+pip install -r requirements-bilanzen.txt
+playwright install chromium            # oder: BILANZ_CHROMIUM=/usr/bin/chromium (Docker-Image hat es bereits)
+python3 -m bilanzen diagnose "Energieberatung" --sichtbar
+```
+
+`diagnose` spielt Suche, erste Trefferseite und die erste Veröffentlichung bis zur Sicherheitsabfrage durch und legt
+je Schritt Bildschirmfoto und Seitenquelltext in `daten/diagnose/` ab (`bericht.txt` fasst zusammen). Mit `--sichtbar`
+sehen Sie dem Browser zu. In der Oberfläche wählen Sie dann oben bei „Neue Suche“ die Quelle; die Oberfläche zeigt
+an, ob Playwright und Chromium bereitstehen. Treffer aus dem Unternehmensregister tragen die Marke „UReg“, das
+Branchenbild rechnet beide Quellen zusammen (je Firma zählt der jüngste Abschluss).
+
+Hinweise: Die Erkennung von Trefferliste, Veröffentlichung und Captcha arbeitet mit sichtbaren Texten und
+Barrierefreiheits-Beschriftungen der Seite („Sicherheitsabfrage“, „Springe eine Seite weiter“, Links mit
+„Jahresabschluss“), weil das Register seine Seitenstruktur bei jedem Neubau ändert. Ändert sich die Seite so, dass
+etwas nicht mehr erkannt wird, zeigt `diagnose`, wo es hakt. Hinterlegte (nicht veröffentlichte) Abschlüsse von
+Kleinstkapitalgesellschaften sind im Unternehmensregister kostenpflichtig und werden übersprungen. Die
+Tests dieses Teils laufen gegen eine lokale Nachbildung der Seite (`tests/fixtures/bilanzen/ureg/`), nicht gegen das
+Register selbst; der Ablauf auf der echten Seite ist mit `diagnose` auf Ihrem Rechner zu prüfen.
 
 ### Betrieb
 
@@ -260,6 +287,7 @@ systemd: `deploy/eco-bilanzen.service`.
 | `BILANZ_PAUSE` | `2` | Sekunden zwischen zwei Anfragen an den Bundesanzeiger (mindestens 1) |
 | `BILANZ_MAX_SEITEN` | `5` | Vorgabe für Trefferseiten je Suchbegriff in der Oberfläche (0 = alle) |
 | `BILANZ_VERTRAUE_PROXY` | `0` | `1` hinter nginx/Caddy (echte Client-IP im Protokoll) |
+| `BILANZ_CHROMIUM` | leer | Pfad zu einem Chromium für das Unternehmensregister (leer = von `playwright install` installiertes) |
 
 Tests: `python3 -m unittest tests.test_bilanzen` (laufen ohne Netz; Trefferliste und Captcha-Seite liegen als
-Fixtures in `tests/fixtures/bilanzen/`).
+Fixtures in `tests/fixtures/bilanzen/`; der Browser-Test wird übersprungen, wenn Playwright oder Chromium fehlen).

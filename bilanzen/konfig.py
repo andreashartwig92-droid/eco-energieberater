@@ -35,6 +35,7 @@ class Konfig:
     vertraue_proxy: bool = False
     max_anfrage_bytes: int = 20_000_000  # Import von Abschlüssen (HTML) über die Oberfläche
     name: str = "Bilanz-Radar"
+    chromium: str = ""  # Pfad zu einem Chromium für das Unternehmensregister (leer = von Playwright installiertes)
 
     @property
     def passwort_noetig(self):
@@ -51,6 +52,7 @@ class Konfig:
             max_seiten_standard=_int("BILANZ_MAX_SEITEN", 5),
             vertraue_proxy=_bool("BILANZ_VERTRAUE_PROXY", False),
             name=os.environ.get("BILANZ_NAME", "Bilanz-Radar"),
+            chromium=os.environ.get("BILANZ_CHROMIUM") or os.environ.get("CHROMIUM") or "",
         )
         if k.passwort_noetig and not k.passwort:
             raise ValueError("BILANZ_PASSWORT muss gesetzt sein, sobald BILANZ_HOST nicht 127.0.0.1 ist.")

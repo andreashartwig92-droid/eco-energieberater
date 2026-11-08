@@ -1,6 +1,7 @@
 """Aufruf:
   python -m bilanzen                                   Webserver (Oberfläche) starten, http://127.0.0.1:8081
-  python -m bilanzen suche "Energieberatung" [--seiten 3] [--nur-liste]
+  python -m bilanzen suche "Energieberatung" [--seiten 3] [--nur-liste] [--quelle unternehmensregister]
+  python -m bilanzen diagnose "Energieberatung" [--sichtbar]   Unternehmensregister Schritt für Schritt prüfen
   python -m bilanzen import datei.html [...] [--suchbegriff Energieberatung]
   python -m bilanzen bericht [--suchbegriff Energieberatung]
   python -m bilanzen export [--suchbegriff ...] > bilanzen.csv
@@ -24,6 +25,11 @@ def main(argv=None):
     s.add_argument("--seiten", type=int, default=None, help="Trefferseiten je Begriff (0 = alle)")
     s.add_argument("--nur-liste", action="store_true", help="nur Treffer anzeigen, nichts laden")
     s.add_argument("--auch-vorhandene", action="store_true", help="bereits gespeicherte Abschlüsse erneut laden")
+    s.add_argument("--quelle", choices=("bundesanzeiger", "unternehmensregister"), default="bundesanzeiger")
+    d = sub.add_parser("diagnose", help="Unternehmensregister: Suche, Trefferliste und erste Veröffentlichung bis zum Captcha durchspielen")
+    d.add_argument("begriff")
+    d.add_argument("--sichtbar", action="store_true", help="Browserfenster anzeigen statt unsichtbar laufen zu lassen")
+    d.add_argument("--ordner", default=None, help="Ablage für Bildschirmfotos und Seitenquelltexte (Standard: daten/diagnose)")
     i = sub.add_parser("import", help="Jahresabschluss-Dateien (HTML/XHTML, z. B. aus dem Unternehmensregister) einlesen")
     i.add_argument("dateien", nargs="+")
     i.add_argument("--suchbegriff", default="", help="Branche/Suchbegriff, dem die Firmen zugeordnet werden")
@@ -50,7 +56,14 @@ def main(argv=None):
     speicher = Speicher(konfig.datenbank)
     if args.befehl == "suche":
         return suche(konfig, speicher, args.begriffe, args.seiten if args.seiten is not None else konfig.max_seiten_standard,
-                     args.nur_liste, not args.auch_vorhandene)
+                     args.nur_liste, not args.auch_vorhandene, args.quelle)
+    if args.befehl == "diagnose":
+        from .unternehmensregister import diagnose
+        ordner = Path(args.ordner) if args.ordner else Path(konfig.datenbank).parent / "diagnose"
+        for zeile in diagnose(args.begriff, ordner, chromium_pfad=konfig.chromium or None, sichtbar=args.sichtbar, pause=konfig.pause):
+            print(zeile)
+        print(f"Dateien liegen in {ordner}")
+        return 0
     if args.befehl == "import":
         return importieren(speicher, args.dateien, args.suchbegriff, args.name)
     if args.befehl == "bericht":
@@ -63,15 +76,19 @@ def main(argv=None):
     return 0
 
 
-def suche(konfig, speicher, begriffe, seiten, nur_liste, nur_neue):
+def suche(konfig, speicher, begriffe, seiten, nur_liste, nur_neue, quelle="bundesanzeiger"):
     """Wie der Hintergrundauftrag, aber im Vordergrund; Captcha-Bild wird als Datei abgelegt und abgefragt."""
-    import threading
     import time
 
     from .auftraege import Verwalter
 
-    verwalter = Verwalter(speicher, pause=konfig.pause)
-    a = verwalter.anlegen(begriffe, max_seiten=seiten, nur_neue=nur_neue, nur_liste=nur_liste)
+    verwalter = Verwalter(speicher, pause=konfig.pause, chromium_pfad=konfig.chromium or None)
+    try:
+        a = verwalter.anlegen(begriffe, max_seiten=seiten, nur_neue=nur_neue, nur_liste=nur_liste, quelle=quelle)
+    except ValueError as e:
+        print(e, file=sys.stderr)
+        verwalter.stoppen()
+        return 2
     gesehen = 0
     try:
         while a.zustand not in ("fertig", "fehler", "abgebrochen"):

@@ -43,6 +43,7 @@ class Treffer:
     link: str  # leer bei Hinterlegungen ohne einsehbares Dokument
     datum: str  # Veröffentlichungsdatum TT.MM.JJJJ
     bereich: str = ""
+    quelle: str = "bundesanzeiger"  # oder "unternehmensregister"
 
     @property
     def ist_jahresabschluss(self):

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8"><title>Unternehmensregister – Veröffentlichung</title></head>
+<body>
+<header><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMzAiLz4=" alt="Logo Unternehmensregister" width="100" height="30"></header>
+<main>
+<div id="captcha">
+  <h2>Sicherheitsabfrage</h2>
+  <p>Um die gewählte Veröffentlichung anzusehen, lösen Sie bitte die folgende Sicherheitsabfrage:</p>
+  <canvas id="bildquelle" width="200" height="60" hidden></canvas>
+  <img id="captchaBild" alt="Sicherheitsabfrage" width="200" height="60">
+  <form onsubmit="event.preventDefault(); pruefen();">
+    <input type="text" name="captchaSolution" autocomplete="off">
+    <button type="submit">OK</button>
+  </form>
+  <p id="meldung"></p>
+</div>
+<div id="inhalt" hidden>
+  <h1>Muster Energieberatung GmbH</h1>
+  <p>Musterstadt</p>
+  <h2>Jahresabschluss zum Geschäftsjahr vom 01.01.2022 bis zum 31.12.2022</h2>
+  <h3>Bilanz</h3>
+  <table>
+    <tr><th></th><th>31.12.2022 EUR</th><th>31.12.2021 EUR</th></tr>
+    <tr><td>A. Anlagevermögen</td><td>150.000,00</td><td>142.350,00</td></tr>
+    <tr><td>B. Umlaufvermögen</td><td>600.000,00</td><td>521.760,45</td></tr>
+    <tr><td>Bilanzsumme</td><td>750.000,00</td><td>667.260,45</td></tr>
+    <tr><td>A. Eigenkapital</td><td>380.000,00</td><td>312.480,12</td></tr>
+    <tr><td>B. Rückstellungen</td><td>100.000,00</td><td>98.400,00</td></tr>
+    <tr><td>C. Verbindlichkeiten</td><td>270.000,00</td><td>256.380,33</td></tr>
+  </table>
+  <h3>Gewinn- und Verlustrechnung</h3>
+  <table>
+    <tr><td>1. Umsatzerlöse</td><td>1.400.000,00</td><td>1.284.500,00</td></tr>
+    <tr><td>2. Personalaufwand</td><td>-800.000,00</td><td>-748.900,00</td></tr>
+    <tr><td>3. Jahresüberschuss</td><td>67.519,88</td><td>71.250,12</td></tr>
+  </table>
+  <p>Im Geschäftsjahr wurden durchschnittlich 12 Arbeitnehmer beschäftigt.</p>
+</div>
+<script>
+  // Testattrappe: Captcha-Bild aus einem Canvas erzeugen, Lösung "7K3P"
+  const c = document.getElementById('bildquelle'); const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 200, 60); ctx.fillStyle = '#000'; ctx.font = '32px sans-serif'; ctx.fillText('7K3P', 40, 42);
+  document.getElementById('captchaBild').src = c.toDataURL('image/png');
+  function pruefen() {
+    const w = document.querySelector('input[name=captchaSolution]').value.trim().toUpperCase();
+    if (w === '7K3P') { document.getElementById('captcha').remove(); document.getElementById('inhalt').hidden = false; }
+    else { document.getElementById('meldung').textContent = 'Die Zeichen waren nicht korrekt. Bitte erneut versuchen.'; }
+  }
+</script>
+</main>
+</body></html>

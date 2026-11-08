@@ -420,3 +420,123 @@ class KonfigTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# --- Unternehmensregister (gesteuerter Browser) -------------------------------------------------
+
+import functools
+import http.server
+import os
+import unittest.mock
+
+from bilanzen import unternehmensregister as ureg
+
+UREG_FIXTURES = FIXTURES / "ureg"
+_CHROMIUM = os.environ.get("BILANZ_CHROMIUM") or os.environ.get("CHROMIUM") or ("/opt/pw-browsers/chromium" if Path("/opt/pw-browsers/chromium").exists() else "")
+
+
+def _browser_moeglich():
+    try:
+        import playwright  # noqa: F401
+    except ImportError:
+        return False
+    return bool(_CHROMIUM) and Path(_CHROMIUM).exists()
+
+
+class _Stumm(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+
+@unittest.skipUnless(_browser_moeglich(), "Playwright oder Chromium fehlt")
+class UnternehmensregisterBrowser(unittest.TestCase):
+    """Spielt den Ablauf gegen eine lokale Nachbildung der Seite durch (Formular, Trefferliste, Blättern, Captcha, Dokument)."""
+
+    @classmethod
+    def setUpClass(cls):
+        handler = functools.partial(_Stumm, directory=str(UREG_FIXTURES))
+        cls.http = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        cls.basis = f"http://127.0.0.1:{cls.http.server_address[1]}"
+        threading.Thread(target=cls.http.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.http.shutdown()
+        cls.http.server_close()
+
+    def test_ablauf(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            client = ureg.BrowserClient(pause=0, chromium_pfad=_CHROMIUM, diagnose_ordner=tmp)
+            client.suche_url = self.basis + "/suche.html"
+            try:
+                seite = client.suche("Energieberatung")
+                self.assertEqual(seite.anzahl_treffer, 3)
+                self.assertEqual([t.name for t in seite.treffer], ["Muster Energieberatung GmbH", "Klein Energieberatung UG (haftungsbeschränkt)"])
+                self.assertEqual(seite.treffer[0].ort, "Musterstadt")
+                self.assertEqual(seite.treffer[0].datum, "12.03.2024")
+                self.assertEqual(seite.treffer[0].quelle, "unternehmensregister")
+                self.assertTrue(seite.treffer[0].ist_jahresabschluss)
+                self.assertTrue(seite.treffer[0].link.endswith("veroeffentlichung.html?id=1"))
+                self.assertEqual(seite.nummer, 1)
+                self.assertTrue(seite.naechste_url)
+
+                seite2 = client.naechste_seite(seite)
+                self.assertEqual(seite2.nummer, 2)
+                self.assertEqual([t.name for t in seite2.treffer], ["Dritte Energieberatung GmbH"])
+                self.assertEqual(seite2.naechste_url, "")
+                self.assertIsNone(client.naechste_seite(seite2))
+
+                with self.assertRaises(CaptchaNoetig) as cm:
+                    client.dokument(seite.treffer[0])
+                self.assertTrue(cm.exception.bild.startswith(b"\x89PNG"))
+                self.assertEqual(cm.exception.versuch, 1)
+                with self.assertRaises(CaptchaNoetig) as cm2:
+                    client.captcha_loesen(cm.exception, "falsch")
+                self.assertEqual(cm2.exception.versuch, 2)
+                dok = client.captcha_loesen(cm2.exception, "7k3p")
+                self.assertIn("publication_container", dok.html)
+                a = parse_jahresabschluss(dok.html)
+                self.assertEqual(a.posten["bilanzsumme"], [750000.0, 667260.45])
+                self.assertEqual(a.posten["umsatz"], [1400000.0, 1284500.0])
+                self.assertEqual(a.gj_bis, "2022-12-31")
+                self.assertEqual(a.mitarbeiter, 12)
+                self.assertTrue(any(p.suffix == ".png" for p in Path(tmp).iterdir()))
+            finally:
+                client.schliessen()
+
+
+class UnternehmensregisterVerwaltung(unittest.TestCase):
+    def test_quelle_im_auftrag(self):
+        s = Speicher(":memory:")
+        fake = FakeClient()
+        fake.schliessen_aufgerufen = False
+        fake.schliessen = lambda: setattr(fake, "schliessen_aufgerufen", True)
+        v = Verwalter(s, client_fabriken={"unternehmensregister": lambda: fake, "bundesanzeiger": lambda: FakeClient()})
+        try:
+            with unittest.mock.patch.object(ureg, "verfuegbar", return_value=(True, "")):
+                a = v.anlegen(["Energieberatung"], max_seiten=1, quelle="unternehmensregister")
+            self.assertEqual(a.als_dict()["quelle"], "unternehmensregister")
+            self.assertTrue(warte_bis(lambda: a.zustand == "captcha"))
+            v.captcha_beantworten(a.id, "ABC123")
+            self.assertTrue(warte_bis(lambda: a.zustand == "fertig"))
+            self.assertEqual(a.geladen, 2)
+            self.assertTrue(fake.schliessen_aufgerufen)
+            self.assertEqual({f["quelle"] for f in s.firmen("Energieberatung")}, {"unternehmensregister"})
+            with unittest.mock.patch.object(ureg, "verfuegbar", return_value=(False, "playwright fehlt")):
+                with self.assertRaises(ValueError):
+                    v.anlegen(["x"], quelle="unternehmensregister")
+            with self.assertRaises(ValueError):
+                v.anlegen(["x"], quelle="irgendwas")
+        finally:
+            v.stoppen()
+            s.schliessen()
+
+    def test_verfuegbar_meldet_fehlendes_chromium(self):
+        ok, grund = ureg.verfuegbar("/gibt/es/nicht")
+        try:
+            import playwright  # noqa: F401
+            self.assertFalse(ok)
+            self.assertIn("Chromium", grund)
+        except ImportError:
+            self.assertFalse(ok)
+            self.assertIn("playwright", grund)

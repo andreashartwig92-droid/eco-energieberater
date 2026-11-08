@@ -16,6 +16,26 @@ from dataclasses import dataclass, field
 
 from .bundesanzeiger import BundesanzeigerFehler, CaptchaNoetig, Client, geschaeftsjahr_aus_titel
 
+QUELLEN = ("bundesanzeiger", "unternehmensregister")
+QUELLEN_NAMEN = {"bundesanzeiger": "Bundesanzeiger", "unternehmensregister": "Unternehmensregister"}
+
+
+class QuellenFehler(Exception):
+    """Sammelklasse: Fehler des Bundesanzeiger- oder Unternehmensregister-Clients."""
+
+
+def _quellenfehler():
+    typen = [BundesanzeigerFehler]
+    try:
+        from .unternehmensregister import UnternehmensregisterFehler
+        typen.append(UnternehmensregisterFehler)
+    except ImportError:  # pragma: no cover
+        pass
+    return tuple(typen)
+
+
+QUELLEN_FEHLER = _quellenfehler()
+
 log = logging.getLogger("bilanzen.auftraege")
 
 ZUSTAENDE = ("wartet", "sucht", "laedt", "captcha", "fertig", "fehler", "abgebrochen")
@@ -27,6 +47,7 @@ class Auftrag:
     max_seiten: int = 5
     nur_neue: bool = True
     nur_liste: bool = False  # nur Treffer zählen/anzeigen, keine Dokumente laden
+    quelle: str = "bundesanzeiger"
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:10])
     zustand: str = "wartet"
     erstellt: float = field(default_factory=time.time)
@@ -55,6 +76,7 @@ class Auftrag:
     def als_dict(self):
         d = {
             "id": self.id, "begriffe": self.begriffe, "max_seiten": self.max_seiten, "nur_neue": self.nur_neue, "nur_liste": self.nur_liste,
+            "quelle": self.quelle,
             "zustand": self.zustand, "erstellt": self.erstellt, "begonnen": self.begonnen, "beendet": self.beendet,
             "aktueller_begriff": self.aktueller_begriff, "seiten_gelesen": self.seiten_gelesen, "treffer_gesamt": self.treffer_gesamt,
             "treffer_gesehen": self.treffer_gesehen, "geladen": self.geladen, "uebersprungen": self.uebersprungen, "fehler": self.fehler,
@@ -67,9 +89,16 @@ class Auftrag:
 
 
 class Verwalter:
-    def __init__(self, speicher, client_fabrik=None, pause=2.0):
+    def __init__(self, speicher, client_fabrik=None, pause=2.0, client_fabriken=None, chromium_pfad=None):
+        """`client_fabrik` (Bundesanzeiger) bzw. `client_fabriken` {quelle: fabrik} erlauben Testattrappen."""
         self.speicher = speicher
-        self.client_fabrik = client_fabrik or (lambda: Client(pause=pause))
+        self.client_fabriken = dict(client_fabriken or {})
+        self.client_fabriken.setdefault("bundesanzeiger", client_fabrik or (lambda: Client(pause=pause)))
+        if "unternehmensregister" not in self.client_fabriken:
+            def _ureg():
+                from .unternehmensregister import BrowserClient
+                return BrowserClient(pause=pause, chromium_pfad=chromium_pfad)
+            self.client_fabriken["unternehmensregister"] = _ureg
         self.auftraege = {}
         self._reihe = deque()
         self._sperre = threading.Lock()
@@ -84,15 +113,22 @@ class Verwalter:
 
     # --- Schnittstelle ---------------------------------------------------------
 
-    def anlegen(self, begriffe, max_seiten=5, nur_neue=True, nur_liste=False):
+    def anlegen(self, begriffe, max_seiten=5, nur_neue=True, nur_liste=False, quelle="bundesanzeiger"):
         begriffe = [b.strip() for b in begriffe if b and b.strip()]
         if not begriffe:
             raise ValueError("Mindestens ein Suchbegriff ist nötig.")
-        a = Auftrag(begriffe=begriffe, max_seiten=max(0, int(max_seiten)), nur_neue=bool(nur_neue), nur_liste=bool(nur_liste))
+        if quelle not in QUELLEN:
+            raise ValueError(f"Unbekannte Quelle „{quelle}“ (erlaubt: {', '.join(QUELLEN)}).")
+        if quelle == "unternehmensregister":
+            from .unternehmensregister import verfuegbar
+            ok, grund = verfuegbar()
+            if not ok:
+                raise ValueError(f"Unternehmensregister nicht nutzbar: {grund}")
+        a = Auftrag(begriffe=begriffe, max_seiten=max(0, int(max_seiten)), nur_neue=bool(nur_neue), nur_liste=bool(nur_liste), quelle=quelle)
         with self._sperre:
             self.auftraege[a.id] = a
             self._reihe.append(a.id)
-        a.log(f"Auftrag angelegt: {', '.join(begriffe)} (bis {a.max_seiten or 'alle'} Seiten je Begriff)")
+        a.log(f"Auftrag angelegt ({QUELLEN_NAMEN[quelle]}): {', '.join(begriffe)} (bis {a.max_seiten or 'alle'} Seiten je Begriff)")
         self._weckruf.set()
         return a
 
@@ -147,16 +183,31 @@ class Verwalter:
 
     def _ausfuehren(self, a):
         a.begonnen = time.time()
-        client = self.client_fabrik()
+        try:
+            client = self.client_fabriken[a.quelle]()
+        except QUELLEN_FEHLER as e:
+            a.zustand, a.meldung, a.beendet = "fehler", str(e), time.time()
+            a.log(f"Quelle nicht nutzbar: {e}")
+            return
+        try:
+            self._durchlaufen(a, client)
+        finally:
+            if hasattr(client, "schliessen"):
+                try:
+                    client.schliessen()
+                except Exception:  # noqa: BLE001
+                    pass
+
+    def _durchlaufen(self, a, client):
         for begriff in a.begriffe:
             if a.abbruch:
                 break
             a.aktueller_begriff = begriff
             a.zustand = "sucht"
-            a.log(f"Suche „{begriff}“ im Bereich Rechnungslegung/Finanzberichte …")
+            a.log(f"Suche „{begriff}“ im {QUELLEN_NAMEN[a.quelle]} (Rechnungslegung/Finanzberichte) …")
             try:
                 seite = client.suche(begriff)
-            except BundesanzeigerFehler as e:
+            except QUELLEN_FEHLER as e:
                 a.fehler += 1
                 a.log(f"Suche fehlgeschlagen: {e}")
                 continue
@@ -174,14 +225,14 @@ class Verwalter:
                 a.zustand = "sucht"
                 try:
                     seite = client.naechste_seite(seite)
-                except BundesanzeigerFehler as e:
+                except QUELLEN_FEHLER as e:
                     a.fehler += 1
                     a.log(f"Nächste Seite fehlgeschlagen: {e}")
                     break
         a.zustand = "abgebrochen" if a.abbruch else "fertig"
         a.beendet = time.time()
         a.meldung = (f"{a.geladen} Abschlüsse geladen, {a.uebersprungen} übersprungen, {a.fehler} Fehler, "
-                     f"{client.anfragen} Anfragen an den Bundesanzeiger.")
+                     f"{client.anfragen} Anfragen an das Portal ({QUELLEN_NAMEN[a.quelle]}).")
         a.log("Fertig. " + a.meldung)
 
     def _treffer_bearbeiten(self, a, client, begriff, treffer):
@@ -205,7 +256,7 @@ class Verwalter:
         a.log(f"Lade: {treffer.name} – {treffer.titel}")
         try:
             dokument = self._dokument_mit_captcha(a, client, treffer)
-        except BundesanzeigerFehler as e:
+        except QUELLEN_FEHLER as e:
             a.fehler += 1
             a.log(f"Fehler: {e}")
             self.speicher.uebersprungen_merken(begriff, treffer, f"Fehler: {e}")
@@ -214,7 +265,7 @@ class Verwalter:
             return
         _, _, abschluss = self.speicher.dokument_speichern(
             treffer.name, treffer.ort, dokument.html, titel=treffer.titel, veroeffentlicht=treffer.datum,
-            suchbegriff=begriff, quelle="bundesanzeiger", quelle_url=dokument.url)
+            suchbegriff=begriff, quelle=a.quelle, quelle_url=dokument.url)
         a.geladen += 1
         if abschluss.warnungen:
             a.log(f"  Hinweis: {'; '.join(abschluss.warnungen)}")
@@ -229,7 +280,7 @@ class Verwalter:
             a.zustand = "captcha"
             a._captcha_loesung = None
             a._ereignis.clear()
-            a.log("Sicherheitsabfrage des Bundesanzeigers – bitte in der Oberfläche lösen.")
+            a.log(f"Sicherheitsabfrage ({QUELLEN_NAMEN[a.quelle]}) – bitte in der Oberfläche lösen.")
             while not a._ereignis.wait(timeout=1.0):
                 if a.abbruch or not self._laeuft:
                     return None

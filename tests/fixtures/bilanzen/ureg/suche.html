@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8"><title>Unternehmensregister – Suche in Rechnungslegung</title></head>
+<body>
+<header><h1>Unternehmensregister</h1></header>
+<main>
+<div class="card">
+<h1>Suche in Rechnungslegung/Finanzberichte</h1>
+<form class="searchForm" role="search" onsubmit="event.preventDefault(); location.href='ergebnis.html?companyName=' + encodeURIComponent(this.companyName.value);">
+<label for="companyName"><span>Firmenname</span><input id="companyName" name="companyName"></label>
+<label for="companyLocation"><span>Niederlassung / Sitz</span><input id="companyLocation" name="companyLocation"></label>
+<label for="publicationContent"><span>Suchbegriff</span><input id="publicationContent" name="publicationContent"></label>
+<button class="button" type="submit" name="search">Suchen</button>
+</form>
+</div>
+</main>
+</body></html>

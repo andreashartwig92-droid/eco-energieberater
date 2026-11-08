@@ -5,7 +5,8 @@ Routen (JSON, Anmeldung über Header `Authorization: Bearer <BILANZ_PASSWORT>`, 
   GET  /gesund                        Health-Check
   GET  /api/info                      Name, Passwortpflicht, Statistik, Suchbegriffe
   GET  /api/auftraege                 alle Aufträge
-  POST /api/auftraege                 {begriffe: [...], max_seiten, nur_neue, nur_liste} → neuer Auftrag
+  POST /api/auftraege                 {begriffe: [...], max_seiten, nur_neue, nur_liste, quelle} → neuer Auftrag
+                                      quelle: "bundesanzeiger" (Standard) oder "unternehmensregister" (Browser nötig)
   GET  /api/auftraege/<id>            Zustand (inkl. Captcha-Bild als data-URL, wenn offen)
   POST /api/auftraege/<id>/captcha    {loesung}
   POST /api/auftraege/<id>/abbrechen
@@ -52,7 +53,13 @@ class Anwendung:
     def __init__(self, konfig, speicher=None, verwalter=None):
         self.konfig = konfig
         self.speicher = speicher or Speicher(konfig.datenbank)
-        self.verwalter = verwalter or Verwalter(self.speicher, pause=konfig.pause)
+        self.verwalter = verwalter or Verwalter(self.speicher, pause=konfig.pause, chromium_pfad=konfig.chromium)
+
+    def quellen(self):
+        from .unternehmensregister import verfuegbar
+        ok, grund = verfuegbar(self.konfig.chromium)
+        return {"bundesanzeiger": {"bereit": True, "hinweis": "Veröffentlichungen bis Geschäftsjahr 2021 (Nachzügler später)"},
+                "unternehmensregister": {"bereit": ok, "hinweis": grund or "Offenlegungen ab Geschäftsjahr 2022, gesteuerter Browser"}}
 
     def angemeldet(self, header_wert):
         if not self.konfig.passwort_noetig:
@@ -126,7 +133,8 @@ class Handler(BaseHTTPRequestHandler):
         if pfad == "/api/info":
             k = self.app.konfig
             return self._json(HTTPStatus.OK, {"name": k.name, "passwort_noetig": k.passwort_noetig, "pause": k.pause,
-                                              "max_seiten_standard": k.max_seiten_standard, "statistik": self.app.speicher.statistik()})
+                                              "max_seiten_standard": k.max_seiten_standard, "statistik": self.app.speicher.statistik(),
+                                              "quellen": self.app.quellen()})
         if not pfad.startswith("/api/"):
             return self._fehler(HTTPStatus.NOT_FOUND, "Nicht gefunden")
         if not self._pruefe_anmeldung():
@@ -214,7 +222,8 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("begriffe fehlt")
                 a = self.app.verwalter.anlegen(
                     [str(b) for b in begriffe], max_seiten=daten.get("max_seiten", self.app.konfig.max_seiten_standard),
-                    nur_neue=daten.get("nur_neue", True), nur_liste=daten.get("nur_liste", False))
+                    nur_neue=daten.get("nur_neue", True), nur_liste=daten.get("nur_liste", False),
+                    quelle=str(daten.get("quelle") or "bundesanzeiger"))
                 return self._json(HTTPStatus.CREATED, a.als_dict())
             m = re.fullmatch(r"/api/auftraege/([0-9a-f]+)/captcha", pfad)
             if m:
