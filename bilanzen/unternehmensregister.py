@@ -290,15 +290,28 @@ class BrowserClient:
                 # Suchsitzung abgelaufen: neu suchen und zur gewünschten Seite springen
                 self.suche(getattr(self, "_begriff", ""))
         weiter = self._seite.locator('[aria-label="Springe eine Seite weiter"], [aria-label*="Seite weiter"], a[rel="next"]').first
-        if weiter.count() == 0:
-            return None
-        if seite.nummer > 1 and self._aktuelle_seite() < seite.nummer:
-            for _ in range(seite.nummer - self._aktuelle_seite()):
-                weiter.click()
-                self._nach_aktion("blaettern")
-        weiter.click()
-        self._nach_aktion("trefferliste")
+        try:
+            weiter.wait_for(state="attached", timeout=min(self.zeitlimit_ms, 20000))
+        except Exception:  # noqa: BLE001
+            if not self._lies_treffer().get("weiter"):
+                return None
+            raise UnternehmensregisterFehler("Knopf „Seite weiter“ nicht gefunden, obwohl weitere Seiten angezeigt werden.")
+        while self._aktuelle_seite() < seite.nummer:
+            self._blaettern(weiter, self._aktuelle_seite() + 1)
+        self._blaettern(weiter, seite.nummer + 1)
         return self._trefferseite(erwartet=seite.nummer + 1)
+
+    def _blaettern(self, weiter, ziel):
+        """Eine Seite weiter und warten, bis die Trefferliste wirklich Seite `ziel` zeigt."""
+        weiter.click()
+        try:
+            self._seite.wait_for_function(
+                """z => { const e = document.querySelector('[aria-label^="Aktuell ausgewählte Seite"], [aria-current="page"]');
+                          return !e || parseInt((e.getAttribute('aria-label') || e.textContent || '').replace(/\\D+/g, ''), 10) >= z; }""",
+                arg=ziel, timeout=min(self.zeitlimit_ms, 30000))
+        except Exception:  # noqa: BLE001 – wird beim Lesen der Seite erkannt
+            pass
+        self._nach_aktion("trefferliste")
 
     def _aktuelle_seite(self):
         d = self._lies_treffer()
