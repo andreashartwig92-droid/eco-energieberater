@@ -108,3 +108,44 @@ medicaid.gov SMD10026; mcdermottlaw.com (Offshoring); namss.org (Exam Fees, Remo
 ezel.ai (ABA 08-451); relativity.com/resources/certification; hrci.org (aPHRi, Exam Fees); shrm.org;
 td.org (APTD, CPTD); osha.gov (Outreach Training Program); fpc.unl.edu und umass.edu (FSPCA PCQI online);
 quality.org (CQI und IRCA online exams); lrqa.com; apmp.org (Foundation); ncmahq.org (Online Proctoring).
+
+---
+
+## Bau, Technik, Energie und Nachhaltigkeit (ohne die bereits geplanten Energienachweise)
+
+| Leistung | Kunden | Software | Zertifikat | Prüfung online | Kosten Zertifikat | Marktpreis | Rechtliche Grenze | Billigkonkurrenz | Passt zu Ihnen |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| CO₂-Bilanz Scope 1 und 2 (später Scope 3), Berichte nach Kaliforniens SB 253, Lieferantendaten | Firmen über 1 Mrd. Umsatz mit Geschäft in Kalifornien und deren Zulieferer, US-Töchter europäischer Konzerne | Excel mit GHG-Protocol-Tools, Persefoni, Watershed, Sweep | GHG Management Institute, Certificates of Proficiency | ja, Prüfung im Kurs, weltweit | 435 mit Prüfung | Mittelstand Scope 1 bis 3 ca. 25.000 bis 75.000 (unsicher) | keine Lizenz. Prüfung (Assurance) nur durch unabhängige Dritte, nicht beim eigenen Kunden. SB 261 vom Gericht gestoppt, SEC-Regel soll aufgehoben werden | mittel (Big Four, Softwareanbieter) | hoch, jährlich wiederkehrend |
+| Prüfung von Energierechnungen, Rückforderungen, Tarifoptimierung | Filialisten, Gastronomie, Schulen, Kommunen, Hausverwaltungen | EnergyCAP, Arcadia/UtilityAPI, Excel | keine | entfällt | 0 | Erfolgshonorar bis 50 % der Rückforderung | keine | mittel | hoch, komplett aus der Ferne |
+| ISO 50001 Energiemanagement, Einführung und interne Audits | Industrie, Lebensmittel, Rechenzentren, Kliniken | EnMS-Tools, Excel | PECB ISO 50001 Lead Implementer oder Lead Auditor | ja (Form und Preis prüfen) | ca. 500 | prüfen | Zertifizierungsaudit nur durch akkreditierte Stelle | mittel | hoch |
+| HVAC- und MEP-Modellierung in Revit, Kollisionsprüfung, Montagepläne | MEP-Planungsbüros, Lüftungs- und Heizungsfirmen | Revit, Navisworks, AutoCAD MEP, Fabrication CADmep | Autodesk Certified Professional: Revit for Mechanical Design | ja, Pearson OnVUE weltweit | 200 | 80 bis 150 je Stunde in den USA, Indien ab 18 | Genehmigungspläne siegelt der PE des Kunden. Nicht als „engineering services“ werben | hoch | hoch |
+| Mengen- und Kostenermittlung, besonders HVAC und Haustechnik | Generalunternehmer, Haustechnikfirmen, Bauherren | Bluebeam Revu, PlanSwift, STACK, Trimble AutoBid/QuoteSoft, FastEST | Bluebeam Certified Professional, später ASPE CPE oder AACE CEP | ja, alle online (ASPE und AACE mit Berufserfahrung) | Bluebeam 89 bis 150, ASPE 655 bis 790, AACE 525 bis 690 | 70 bis 160 je Stunde für Erfahrene, 2.500 bis 8.000 je Projekt, Einzelgewerke ab 200 | keine | hoch (Fiverr ab 10 je Stunde) | hoch in der HVAC-Nische |
+| LEED-v5-Dokumentation und Beratung (Energie, Kältemittel, graue Energie) | Bauträger, Architekten, Firmenimmobilien | LEED Online, Energie- und Ökobilanz-Tools | LEED Green Associate, dann LEED AP BD+C | ja, Prometric mit Fernaufsicht, weltweit | 250 plus ca. 350 | 100 bis 300 je Stunde, 10.000 bis 50.000 je Projekt (unsicher) | keine, gesiegelte Planunterlagen beim Planer | mittel | hoch |
+| Ökobilanz Gebäude (graue Energie), Unterstützung bei Umweltproduktdeklarationen | Architekten, Generalunternehmer (Buy Clean California), LEED-Projekte, Baustoffhersteller | One Click LCA, EC3 (kostenlos), Tally | One Click LCA Academy | ja, kostenlos | 0 | prüfen | EPD braucht Prüfung durch Programmbetreiber | mittel | mittel bis hoch |
+| Energiemanagement und Messung & Verifizierung | Industrie, Facility Management, Energiedienstleister | Analyse-Tools, Versorgerdaten | AEE CEM, CMVP | teilweise, Fernaufsicht nur nach anerkanntem Vorbereitungskurs, Ausland über lokale AEE-Partner | ca. 500 | prüfen | Begehungen vor Ort | mittel | mittel bis hoch |
+| ESG-Berichte nach GRI, CSRD für US-Töchter | Mittelstand, US-Töchter europäischer Firmen, Exporteure | GRI-Standards, Berichtssoftware | GRI Certified Sustainability Professional | ja, nur online, ohne Termin | ca. 400 plus Kurse | prüfen | Prüfung getrennt. Nachfrage in den USA schwach | mittel bis hoch | mittel |
+| Terminplanung (P6), Fortschreibung, Unterstützung bei Verzugsanalysen | Generalunternehmer, Bauherren, öffentliche Bauaufträge | Primavera P6, MS Project | PMI-SP, AACE PSP, Oracle P6 | ja, Fernaufsicht | ca. 200 bis 670 | 75 bis 150 je Stunde (prüfen) | Gutachter vor Gericht braucht teils Präsenz | mittel bis hoch | mittel |
+| Projektsteuerung aus der Ferne | Bauherren, Projektentwickler, Sanierungsprogramme | Procore, Autodesk Construction Cloud | PMP | ja, OnVUE weltweit, 36 Monate Projekterfahrung nötig | ca. 405 bis 675 | 75 bis 150 je Stunde (prüfen) | keine | hoch | mittel, als Zusatz |
+| Dokumentenlenkung, Submittals, RFIs, Prüfung von Herstellerunterlagen | Generalunternehmer, Haustechnikfirmen, Architekten | Procore, ACC, Bluebeam Studio, Newforma | CSI CDT | ja, Fernaufsicht in festen Prüfungsfenstern | 425 bis 935 | 40 bis 80 je Stunde (prüfen) | Verantwortung bleibt beim Planer | hoch | mittel, HVAC-Submittals als Nische |
+| WELL-Beratung (Raumluft, Behaglichkeit, Lüftung) | Firmenbüros, Projektentwickler | WELL Online | WELL AP | ja, Prometric mit Fernaufsicht | ca. 199 bis 299 (prüfen) | prüfen | Messungen vor Ort durch Prüfstelle | niedrig bis mittel | mittel |
+
+**Nicht geeignet:**
+- **Brandschutz-Layout nach NICET:** Ab Stufe II braucht man US-Berufserfahrung und das Testzentrum, dazu kommen staatliche Lizenzen.
+- **Stahlbau-Detailplanung:** Die Billigkonkurrenz ist sehr stark, und es gibt keine Überschneidung mit Ihrem Fach.
+- **ASME GD&T:** Die Prüfung findet nur im Testzentrum statt.
+- **Umweltgutachten Phase I:** Dafür braucht man einen US-„Environmental Professional“ mit Ortsbegehung.
+- **Genehmigungsservice (Permit Expediting):** Er setzt örtliche Präsenz voraus.
+
+**Rangfolge in dieser Gruppe (passend zu Ihrem Fach):**
+1. CO₂-Bilanzen und Lieferantendaten.
+2. Prüfung von Energierechnungen und ISO 50001 im Abo.
+3. HVAC-Modellierung in Revit.
+4. HVAC-Mengen- und Kostenermittlung.
+5. LEED v5 mit Ökobilanz.
+
+Quellen: certified.bluebeam.com; web.aacei.org; aspenational.org; autodesk.com/certification (Revit Mechanical);
+pmi.org; nicet.org; portal.ct.gov (Layout Technician); asme.org (GDTP); usgbc.gitbook.io (LEED Handbooks);
+prometric.com/iwbi; akingump.com und debevoise.com (SB 253); whitecase.com (SB 261); investmentnews.com (SEC);
+ghginstitute.org; academy.oneclicklca.com; globalreporting.org/academy; academy.sgs.com (PECB ISO 50001);
+aeecenter.org/remoteproctoring; ecfr.gov (40 CFR 312); csiresources.org (CDT); credentials.tekla.com;
+public.warrencountyny.gov und senate.mo.gov (Erfolgshonorare Rechnungsprüfung).
