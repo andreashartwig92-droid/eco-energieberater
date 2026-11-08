@@ -46,15 +46,16 @@ JS_TREFFER = r"""
   const ergebnis = [];
   const tabelle = main.querySelector('[data-testid="searchResultTable"]');
   if (tabelle) {
-    let kopf = { name: '', register: '' };
+    let kopf = { name: '', register: '', ort: '' };
+    const zellText = (el) => { if (!el) return ''; const k = el.cloneNode(true); k.querySelectorAll('button, [role="button"]').forEach(b => b.remove()); return sauber(k.textContent); };
     for (const tr of tabelle.querySelectorAll('tbody tr')) {
       if (tr.getAttribute('data-testid') === 'companyHeader') {
         const ps = Array.from(tr.querySelectorAll('th:first-child p')).map(p => sauber(p.textContent)).filter(Boolean);
         kopf = { name: sauber((tr.querySelector('[data-testid="company-name"]') || {}).textContent),
-                 register: ps.filter(t => /^Amtsgericht|^(HRB|HRA|GnR|PR|VR)\b/.test(t)).join(' ') };
+                 register: ps.filter(t => /^Amtsgericht|^(HRB|HRA|GnR|PR|VR)\b/.test(t)).join(' '), ort: '' };
         continue;
       }
-      const firmaZelle = sauber((tr.querySelector('[data-testid="company"]') || {}).textContent);
+      const firmaZelle = zellText(tr.querySelector('[data-testid="company"]'));
       const info = Array.from(tr.querySelectorAll('[data-testid="information"] span')).map(s => sauber(s.textContent));
       for (const a of tr.querySelectorAll('[data-testid="label"] a[href]')) {
         const block = a.parentElement;
@@ -63,6 +64,8 @@ JS_TREFFER = r"""
         const komma = firmaZelle.lastIndexOf(',');
         if (komma > 0) { ort = firmaZelle.slice(komma + 1).trim(); if (!name) name = firmaZelle.slice(0, komma).trim(); }
         else if (!name) name = firmaZelle;
+        // Eine Firma = ein Kopf im Register: alle Veröffentlichungen darunter bekommen den Ort der ersten (jüngsten) Zeile
+        if (kopf.name) { if (!kopf.ort) kopf.ort = ort; else ort = kopf.ort; }
         ergebnis.push({ name, ort, titel: sauber(a.textContent), href: a.href, datum, register: kopf.register,
                         bereich: info[0] || '', herkunft: info[1] || '' });
       }

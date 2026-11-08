@@ -469,12 +469,15 @@ class UnternehmensregisterBrowser(unittest.TestCase):
             try:
                 seite = client.suche("Energieberatung")
                 self.assertEqual(seite.anzahl_seiten, 2)
-                self.assertEqual([t.name for t in seite.treffer], ["Muster Energieberatung GmbH", "Klein Energieberatung UG (haftungsbeschränkt)"])
+                self.assertEqual([t.name for t in seite.treffer], ["Muster Energieberatung GmbH", "Muster Energieberatung GmbH",
+                                                                   "Klein Energieberatung UG (haftungsbeschränkt)"])
+                # Ort je Firmenkopf vereinheitlicht, Text des Knopfs „mehr“ nicht im Ort
+                self.assertEqual([t.ort for t in seite.treffer], ["Musterstadt", "Musterstadt", "Kleinstadt"])
                 t = seite.treffer[0]
                 self.assertEqual((t.ort, t.datum, t.quelle, t.herkunft), ("Musterstadt", "12.03.2024", "unternehmensregister", "Unternehmensregister"))
                 self.assertEqual(t.register, "Amtsgericht Musterstadt HRB 12345")
                 self.assertEqual(t.bereich, "Rechnungslegung / Finanzberichte")
-                self.assertEqual(seite.treffer[1].herkunft, "Bundesanzeiger")
+                self.assertEqual(seite.treffer[2].herkunft, "Bundesanzeiger")
                 self.assertTrue(t.ist_jahresabschluss)
                 self.assertTrue(t.link.endswith("veroeffentlichung.html?id=1"))
                 self.assertEqual(seite.nummer, 1)
