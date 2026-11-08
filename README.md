@@ -223,7 +223,9 @@ klicken „Ich bin ein Mensch – bestätigen“, erst dann setzt der Browser da
 und der Abschluss wird geladen. Das Werkzeug bestätigt nie von sich aus: Die Abfrage ist die Schutzmaßnahme des
 Registers gegen Massenabrufe, und das Register sperrt bei Umgehung IP-Adressen. Damit die Zahl der Bestätigungen
 überschaubar bleibt, lädt die Oberfläche standardmäßig nur die letzten Geschäftsjahre („Geschäftsjahre ab“, Vorgabe:
-aktuelles Jahr minus 4), und bereits gespeicherte Abschlüsse werden nicht erneut geöffnet. Mit „Nur Trefferliste
+aktuelles Jahr minus 4), je Firma nur den jüngsten Abschluss (eine Bestätigung je Firma, abschaltbar unter
+Einstellungen), und bereits gespeicherte Abschlüsse werden nicht erneut geöffnet. Bestätigen geht auch per
+Enter- oder Leertaste, solange eine Abfrage offen ist. Mit „Nur Trefferliste
 lesen“ (Einstellungen) zählt das Werkzeug Firmen und Veröffentlichungen ganz ohne Bestätigung.
 
 Einzelne Veröffentlichungen lassen sich außerdem als HTML-Datei importieren, Kennzahlen aus eigenen Listen als CSV

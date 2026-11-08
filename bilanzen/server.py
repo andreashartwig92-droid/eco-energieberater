@@ -5,7 +5,7 @@ Routen (JSON, Anmeldung über Header `Authorization: Bearer <BILANZ_PASSWORT>`, 
   GET  /gesund                        Health-Check
   GET  /api/info                      Name, Passwortpflicht, Statistik, Suchbegriffe
   GET  /api/auftraege                 alle Aufträge
-  POST /api/auftraege                 {begriffe: [...], max_seiten, nur_neue, nur_liste, ab_jahr} → neuer Auftrag im Unternehmensregister
+  POST /api/auftraege                 {begriffe: [...], max_seiten, nur_neue, nur_liste, ab_jahr, nur_juengster} → neuer Auftrag im Unternehmensregister
   GET  /api/auftraege/<id>            Zustand (inkl. Captcha-Bild als data-URL, wenn offen)
   POST /api/auftraege/<id>/captcha    {loesung} – "bestaetigt", wenn ein Mensch „Ich bin ein Mensch“ bestätigt hat
   POST /api/auftraege/<id>/abbrechen
@@ -237,7 +237,8 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("Unternehmensregister nicht nutzbar: " + self.app.quellen()["unternehmensregister"]["hinweis"])
                 a = self.app.verwalter.anlegen(
                     [str(b) for b in begriffe], max_seiten=daten.get("max_seiten", self.app.konfig.max_seiten_standard),
-                    nur_neue=daten.get("nur_neue", True), nur_liste=daten.get("nur_liste", False), ab_jahr=daten.get("ab_jahr") or 0)
+                    nur_neue=daten.get("nur_neue", True), nur_liste=daten.get("nur_liste", False), ab_jahr=daten.get("ab_jahr") or 0,
+                    nur_juengster=daten.get("nur_juengster", False))
                 return self._json(HTTPStatus.CREATED, a.als_dict())
             m = re.fullmatch(r"/api/auftraege/([0-9a-f]+)/captcha", pfad)
             if m:

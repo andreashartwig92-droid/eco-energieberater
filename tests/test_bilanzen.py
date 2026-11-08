@@ -282,6 +282,26 @@ class Auftraege(unittest.TestCase):
             v.stoppen()
             s.schliessen()
 
+    def test_nur_juengster_je_firma(self):
+        class ZweiJahre(FakeClient):
+            def suche(self, begriff, bereich=None):
+                titel = "Jahresabschluss zum Geschäftsjahr vom 01.01.{j} bis zum 31.12.{j}"
+                treffer = [Treffer("Klein Energieberatung UG (haftungsbeschränkt)", "Kleinstadt", titel.format(j=2023), "https://x/2a", ""),
+                           Treffer("Klein Energieberatung UG (haftungsbeschränkt)", "Kleinstadt", titel.format(j=2022), "https://x/2b", "")]
+                return Seite(treffer=treffer, nummer=1, anzahl_treffer=2, naechste_url="", url="https://x/suche")
+        s = Speicher(":memory:")
+        v = Verwalter(s, client_fabrik=lambda: ZweiJahre())
+        try:
+            a = v.anlegen(["Energieberatung"], nur_juengster=True)
+            self.assertTrue(warte_bis(lambda: a.zustand == "fertig"))
+            self.assertEqual((a.geladen, a.uebersprungen), (1, 1))
+            b = v.anlegen(["Energieberatung"], nur_juengster=False, nur_neue=False)
+            self.assertTrue(warte_bis(lambda: b.zustand == "fertig"))
+            self.assertEqual(b.geladen, 2)
+        finally:
+            v.stoppen()
+            s.schliessen()
+
     def test_abbrechen_im_captcha(self):
         s = Speicher(":memory:")
         v = Verwalter(s, client_fabrik=lambda: FakeClient())

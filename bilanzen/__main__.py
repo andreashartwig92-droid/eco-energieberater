@@ -28,6 +28,7 @@ def main(argv=None):
     s.add_argument("--nur-liste", action="store_true", help="nur Treffer anzeigen, nichts laden")
     s.add_argument("--auch-vorhandene", action="store_true", help="bereits gespeicherte Abschlüsse erneut laden")
     s.add_argument("--ab-jahr", type=int, default=0, help="nur Geschäftsjahre ab diesem Jahr laden (spart Bestätigungen)")
+    s.add_argument("--alle-jahre", action="store_true", help="je Firma alle passenden Jahrgänge statt nur den jüngsten laden")
     d = sub.add_parser("diagnose", help="Unternehmensregister: Suche, Trefferliste und erste Veröffentlichung bis zur Sicherheitsabfrage durchspielen")
     d.add_argument("begriff")
     d.add_argument("--sichtbar", action="store_true", help="Browserfenster anzeigen statt unsichtbar laufen zu lassen")
@@ -65,7 +66,7 @@ def main(argv=None):
     speicher = Speicher(konfig.datenbank)
     if args.befehl == "suche":
         return suche(konfig, speicher, args.begriffe, args.seiten if args.seiten is not None else konfig.max_seiten_standard,
-                     args.nur_liste, not args.auch_vorhandene, args.ab_jahr)
+                     args.nur_liste, not args.auch_vorhandene, args.ab_jahr, not args.alle_jahre)
     if args.befehl == "diagnose":
         from .unternehmensregister import diagnose
         ordner = Path(args.ordner) if args.ordner else Path(konfig.datenbank).parent / "diagnose"
@@ -98,7 +99,7 @@ def main(argv=None):
     return 0
 
 
-def suche(konfig, speicher, begriffe, seiten, nur_liste, nur_neue, ab_jahr=0):
+def suche(konfig, speicher, begriffe, seiten, nur_liste, nur_neue, ab_jahr=0, nur_juengster=True):
     """Wie der Hintergrundauftrag, aber im Vordergrund; die Sicherheitsabfrage wird als Bild abgelegt und im Terminal bestätigt."""
     import time
 
@@ -106,7 +107,7 @@ def suche(konfig, speicher, begriffe, seiten, nur_liste, nur_neue, ab_jahr=0):
 
     verwalter = Verwalter(speicher, pause=konfig.pause, chromium_pfad=konfig.chromium or None)
     try:
-        a = verwalter.anlegen(begriffe, max_seiten=seiten, nur_neue=nur_neue, nur_liste=nur_liste, ab_jahr=ab_jahr)
+        a = verwalter.anlegen(begriffe, max_seiten=seiten, nur_neue=nur_neue, nur_liste=nur_liste, ab_jahr=ab_jahr, nur_juengster=nur_juengster)
     except ValueError as e:
         print(e, file=sys.stderr)
         verwalter.stoppen()

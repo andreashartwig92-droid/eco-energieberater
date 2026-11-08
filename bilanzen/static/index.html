@@ -106,6 +106,7 @@
       <div><button class="primaer" id="start">Daten holen</button></div>
     </div>
     <details style="margin-top:8px"><summary>Einstellungen</summary>
+      <label><input type="checkbox" id="nur-juengster" checked> Je Firma nur den jüngsten Abschluss laden (eine Bestätigung je Firma)</label>
       <label><input type="checkbox" id="nur-neue" checked> Bereits gespeicherte Abschlüsse nicht erneut abrufen</label>
       <label><input type="checkbox" id="nur-liste"> Nur Trefferliste lesen (Firmen und Veröffentlichungen zählen, keine Abschlüsse öffnen)</label>
     </details>
@@ -197,6 +198,15 @@
   let aktiveAuftraege = 0;
   let quellen = {};
   let quelleStandard = '';
+  let offeneBestaetigung = null;
+  // Schnell bestätigen: Enter oder Leertaste, solange eine Abfrage „Ich bin ein Mensch“ offen ist und kein Eingabefeld den Fokus hat
+  document.addEventListener('keydown', async (e) => {
+    if (!offeneBestaetigung || !['Enter', ' '].includes(e.key)) return;
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement || {}).tagName) || $('#detail').open) return;
+    e.preventDefault();
+    const id = offeneBestaetigung; offeneBestaetigung = null;
+    try { await api(`/api/auftraege/${id}/captcha`, { method: 'POST', body: JSON.stringify({ loesung: 'bestaetigt' }) }); setTimeout(ladeAuftraege, 600); } catch (err) { alert(err.message); }
+  });
   const QUELLEN_NAMEN = { unternehmensregister: 'Unternehmensregister', bundesanzeiger: 'Bundesanzeiger', openregister: 'OpenRegister', csv: 'CSV', import: 'Import' };
 
   const fmtGeld = (w) => (w == null) ? '–' : new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(w) + ' €';
@@ -255,7 +265,7 @@
     if (!begriffe.length) return alert('Bitte eine Branche oder einen Suchbegriff eingeben.');
     try {
       await api('/api/auftraege', { method: 'POST', body: JSON.stringify({ begriffe, max_seiten: Number($('#max-seiten').value), nur_neue: $('#nur-neue').checked,
-        nur_liste: $('#nur-liste').checked, ab_jahr: Number($('#ab-jahr').value) || 0 }) });
+        nur_liste: $('#nur-liste').checked, ab_jahr: Number($('#ab-jahr').value) || 0, nur_juengster: $('#nur-juengster').checked }) });
       zuletztGesucht = begriffe[0];
       ladeAuftraege();
     } catch (e) { alert(e.message); }
@@ -267,6 +277,7 @@
     let r; try { r = await api('/api/auftraege'); } catch (e) { return; }
     aktiveAuftraege = r.auftraege.filter(a => !['fertig', 'fehler', 'abgebrochen'].includes(a.zustand)).length;
     captchaMelden(r.auftraege);
+    offeneBestaetigung = (r.auftraege.find(a => a.zustand === 'captcha' && a.captcha_art === 'bestaetigen') || {}).id || null;
     const el = $('#auftraege');
     const zeigen = r.auftraege.filter((a, i) => i < 1 || !['fertig', 'fehler', 'abgebrochen'].includes(a.zustand) || (Date.now() / 1000 - (a.beendet || 0)) < 600).slice(0, 5);
     el.innerHTML = zeigen.map(a => {
@@ -279,7 +290,7 @@
           ? `<div class="captcha"><strong>Sicherheitsabfrage des Unternehmensregisters</strong> für ${esc(a.captcha_treffer || '')}:
               <img src="${a.captcha_bild}" alt="Sicherheitsabfrage">
               <div class="zeile"><button class="primaer" data-captcha="${a.id}" data-loesung="bestaetigt">Ich bin ein Mensch – bestätigen</button>
-              <span class="hinweis">Danach rechnet die Abfrage einige Sekunden im Browser, dann lädt der Abschluss.</span></div></div>`
+              <span class="hinweis">Taste <kbd>Enter</kbd> oder <kbd>Leertaste</kbd> bestätigt ebenfalls. Danach rechnet die Abfrage einige Sekunden, dann lädt der Abschluss.</span></div></div>`
           : `<div class="captcha"><strong>Sicherheitsabfrage des Unternehmensregisters</strong> – Zeichen ablesen und eingeben:
               <img src="${a.captcha_bild}" alt="Sicherheitsabfrage">
               <div class="zeile"><input type="text" id="captcha-${a.id}" autocomplete="off" autofocus placeholder="Zeichen"><button class="primaer" data-captcha="${a.id}">Absenden</button></div></div>`;

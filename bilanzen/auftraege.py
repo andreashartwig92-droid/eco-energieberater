@@ -33,6 +33,8 @@ class Auftrag:
     nur_neue: bool = True
     nur_liste: bool = False  # nur Treffer zählen/anzeigen, keine Dokumente laden
     ab_jahr: int = 0  # nur Geschäftsjahre ab diesem Jahr laden (0 = alle); spart Bestätigungen für sehr alte Abschlüsse
+    nur_juengster: bool = False  # je Firma nur den jüngsten Jahresabschluss laden (eine Bestätigung je Firma)
+    _firmen_erledigt: set = field(default_factory=set)
     quelle: str = QUELLE
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:10])
     zustand: str = "wartet"
@@ -64,7 +66,7 @@ class Auftrag:
     def als_dict(self):
         d = {
             "id": self.id, "begriffe": self.begriffe, "max_seiten": self.max_seiten, "nur_neue": self.nur_neue, "nur_liste": self.nur_liste,
-            "ab_jahr": self.ab_jahr, "quelle": self.quelle, "zustand": self.zustand, "erstellt": self.erstellt, "begonnen": self.begonnen, "beendet": self.beendet,
+            "ab_jahr": self.ab_jahr, "nur_juengster": self.nur_juengster, "quelle": self.quelle, "zustand": self.zustand, "erstellt": self.erstellt, "begonnen": self.begonnen, "beendet": self.beendet,
             "aktueller_begriff": self.aktueller_begriff, "seiten_gelesen": self.seiten_gelesen, "seiten_gesamt": self.seiten_gesamt,
             "treffer_gesamt": self.treffer_gesamt, "treffer_gesehen": self.treffer_gesehen, "geladen": self.geladen,
             "uebersprungen": self.uebersprungen, "fehler": self.fehler, "captcha_versuche": self.captcha_versuche, "meldung": self.meldung,
@@ -102,7 +104,7 @@ class Verwalter:
 
     # --- Schnittstelle ---------------------------------------------------------
 
-    def anlegen(self, begriffe, max_seiten=5, nur_neue=True, nur_liste=False, ab_jahr=0, **_):
+    def anlegen(self, begriffe, max_seiten=5, nur_neue=True, nur_liste=False, ab_jahr=0, nur_juengster=False, **_):
         begriffe = [b.strip() for b in begriffe if b and b.strip()]
         if not begriffe:
             raise ValueError("Mindestens ein Suchbegriff ist nötig.")
@@ -112,12 +114,12 @@ class Verwalter:
             if not ok:
                 raise ValueError(f"Unternehmensregister nicht nutzbar: {grund}")
         a = Auftrag(begriffe=begriffe, max_seiten=max(0, int(max_seiten)), nur_neue=bool(nur_neue), nur_liste=bool(nur_liste),
-                    ab_jahr=max(0, int(ab_jahr or 0)))
+                    ab_jahr=max(0, int(ab_jahr or 0)), nur_juengster=bool(nur_juengster))
         with self._sperre:
             self.auftraege[a.id] = a
             self._reihe.append(a.id)
         a.log(f"Auftrag angelegt: {', '.join(begriffe)} (bis {a.max_seiten or 'alle'} Seiten je Begriff"
-              f"{f', Geschäftsjahre ab {a.ab_jahr}' if a.ab_jahr else ''})")
+              f"{f', Geschäftsjahre ab {a.ab_jahr}' if a.ab_jahr else ''}{', nur jüngster Abschluss je Firma' if a.nur_juengster else ''})")
         self._weckruf.set()
         return a
 
@@ -237,12 +239,17 @@ class Verwalter:
         if a.ab_jahr and gj_bis and int(gj_bis[:4]) < a.ab_jahr:
             a.uebersprungen += 1
             return
+        firma = (treffer.name.strip().lower(), treffer.ort.strip().lower())
+        if a.nur_juengster and treffer.ist_jahresabschluss and firma in a._firmen_erledigt:
+            a.uebersprungen += 1  # die Trefferliste nennt je Firma den jüngsten Abschluss zuerst
+            return
         if not treffer.ist_jahresabschluss:
             a.uebersprungen += 1
             grund = "kein einsehbares Dokument (nur hinterlegt)" if not treffer.link else f"kein Jahresabschluss: {treffer.titel[:60]}"
             self.speicher.uebersprungen_merken(begriff, treffer, grund)
             return
         if a.nur_neue and self.speicher.hat_abschluss(treffer.name, treffer.ort, gj_bis):
+            a._firmen_erledigt.add(firma)
             a.uebersprungen += 1
             # Firma trotzdem dem Suchbegriff zuordnen
             self.speicher.firma_anlegen(treffer.name, treffer.ort, suchbegriff=begriff)
@@ -258,6 +265,7 @@ class Verwalter:
             return
         if dokument is None:  # abgebrochen
             return
+        a._firmen_erledigt.add(firma)
         _, _, abschluss = self.speicher.dokument_speichern(
             treffer.name, treffer.ort, dokument.html, titel=treffer.titel, veroeffentlicht=treffer.datum,
             suchbegriff=begriff, quelle=a.quelle, quelle_url=dokument.url)
