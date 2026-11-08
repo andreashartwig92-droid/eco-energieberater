@@ -327,7 +327,7 @@
     $('#vorreiter-info').textContent = `${r.bewertet} von ${r.anzahl} Unternehmen bewertet · Gewichte: ` + Object.entries(r.gewichte).map(([d, g]) => `${DIM_KURZ[d]} ${Math.round(g * 100)} %`).join(', ');
     const kat = Object.entries(r.kategorien).map(([d, liste]) => liste.length ? `<div class="kachel"><div class="titel">${esc(r.dimensionen[d])}</div>` +
       liste.slice(0, 3).map((x, i) => `<div>${i + 1}. <a href="#" data-firma="${x.id}">${esc(x.name)}</a> <span class="hinweis">${d === 'groesse' ? fmtGeld(x.wert) : fmtPct(x.wert, d === 'ertrag' ? 1 : 0)}</span></div>`).join('') + '</div>' : '').join('');
-    const balken = (p) => p == null ? '<span class="hinweis">–</span>' : `<span class="spur" style="display:inline-block;width:60px;height:8px;vertical-align:middle;background:var(--bg);border-radius:4px"><span class="fuellung" style="display:block;width:${p.toFixed(0)}%;height:100%;border-radius:4px"></span></span> <span class="hinweis">${p.toFixed(0)}</span>`;
+    const balken = (p) => p == null ? '<span class="hinweis">–</span>' : `<span class="spur" style="display:inline-block;width:60px;height:8px;vertical-align:middle;background:var(--bg);border-radius:4px"><span style="display:block;width:${p.toFixed(0)}%;height:100%;border-radius:4px;background:var(--akzent)"></span></span> <span class="hinweis">${p.toFixed(0)}</span>`;
     el.innerHTML = `<div class="kacheln">${kat}</div>
       <div style="overflow:auto"><table><thead><tr><th>Rang</th><th>Firma</th><th>GJ</th><th class="zahl">Vorreiter-Score</th>
         <th>Wachstum</th><th>Ertrag</th><th>Größe</th><th>Substanz</th><th>Trend</th><th>Begründung</th></tr></thead><tbody>` +
