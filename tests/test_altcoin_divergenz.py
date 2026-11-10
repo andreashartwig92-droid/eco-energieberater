@@ -198,5 +198,41 @@ class Trend(unittest.TestCase):
         self.assertEqual(trendsignale(df.assign(ema50=85.0)), [])            # kein Aufwärtstrend
 
 
+class FairValueGap(unittest.TestCase):
+    def _kerzen(self, tief_305: float = 100.3):
+        from altcoin_divergenz.trend import VORLAUF
+        n = VORLAUF + 12
+        x = pd.DataFrame({"ts": np.arange(n) * 300_000, "open": 100.0, "high": 100.1, "low": 99.9, "close": 100.0,
+                          "atr": 0.2, "ema50": 99.0, "ema200": 98.0})
+        i = VORLAUF + 3  # Kerze 3 des Musters
+        x.loc[i - 1, ["open", "high", "low", "close"]] = [100.0, 101.1, 99.95, 101.0]   # Bewegungskerze
+        x.loc[i, ["open", "high", "low", "close"]] = [101.0, 101.2, 100.6, 101.1]       # Lücke 100,1 … 100,6
+        x.loc[i + 1, ["open", "high", "low", "close"]] = [101.1, 101.2, 100.7, 100.8]
+        x.loc[i + 2, ["open", "high", "low", "close"]] = [100.8, 100.9, tief_305, 100.5]  # Rücklauf in die Lücke
+        x.loc[i + 3:, ["open", "high", "low", "close"]] = [100.5, 101.5, 100.4, 101.4]   # Ziel 101,35 erreicht
+        return x, i
+
+    def test_erkennung_und_limit_einstieg(self):
+        from altcoin_divergenz.fvg import fvg_signale, handeln
+        x, i = self._kerzen()
+        s = fvg_signale(x, 0.25, 1.0, trend=True)
+        self.assertEqual([(z["idx"], z["richtung"]) for z in s], [(i, 1)])
+        self.assertAlmostEqual(s[0]["einstieg"], 100.35)
+        self.assertEqual(s[0]["stop"], 99.9)
+        h = Handel(gebuehr=0, slippage=0, min_stop=0, stop_puffer=0, max_stop=0.05)
+        t = handeln("TEST", x, s, h, "fest", 0.0, 0.0)
+        self.assertEqual(len(t), 1)
+        self.assertEqual((t[0]["einstieg_idx"], t[0]["grund"]), (i + 2, "Take-Profit"))
+        self.assertAlmostEqual(t[0]["marge_brutto_pct"], 10 * 2 * 0.45 / 100.35 * 100)
+
+    def test_kein_ruecklauf_kein_trade(self):
+        from altcoin_divergenz.fvg import fvg_signale, handeln
+        x, i = self._kerzen(tief_305=100.5)
+        x.loc[i + 3:, "low"] = 100.45
+        s = fvg_signale(x, 0.25, 1.0, trend=False)
+        self.assertEqual(handeln("TEST", x, s, Handel(min_stop=0), "fest", 0.0, 0.0), [])
+        self.assertEqual(fvg_signale(x.assign(ema50=97.0), 0.25, 1.0, trend=True), [])  # gegen den Trend
+
+
 if __name__ == "__main__":
     unittest.main()

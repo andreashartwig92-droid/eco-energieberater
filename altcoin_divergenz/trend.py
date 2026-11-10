@@ -54,14 +54,19 @@ AUSSTIEGE = ["fest", "Einstand", "Trailing", "Halb"]
 
 
 def simuliere(o, hi, lo, c, atr, e: int, richtung: int, stop: float, h: Handel, art: str,
-              stunden_je_kerze: float, maker: float | None = None) -> dict | None:
+              stunden_je_kerze: float, maker: float | None = None, einstieg: float | None = None,
+              durchlauf: float = 0.0) -> dict | None:
     """Einen Trade mit der Ausstiegsart `art` ab Eröffnung der Kerze e simulieren.
     `maker`: Einstieg und Ziele (Take-Profit, Teilverkauf) als Limit-Order mit dieser Gebühr und ohne Slippage;
-    Stops und Zeitstopp bleiben Market-Orders. Ohne `maker` alles als Market-Order."""
+    Stops und Zeitstopp bleiben Market-Orders. Ohne `maker` alles als Market-Order.
+    `einstieg`: Limit-Order wird in Kerze e zu diesem Kurs ausgeführt (statt zur Eröffnung). In dieser Kerze zählt
+    danach nur noch der Stop, weil unbekannt ist, ob ihr Hoch bzw. Tief vor oder nach der Ausführung lag.
+    `durchlauf`: Ziel-Orders (Take-Profit, Teilverkauf) gelten erst als ausgeführt, wenn der Kurs sie um diesen
+    Anteil überschreitet (Long) bzw. unterschreitet (Short) – bei 0 reicht eine Berührung."""
     n = len(c)
     if e >= n:
         return None
-    roh = o[e]
+    roh = o[e] if einstieg is None else einstieg
     abstand = richtung * (roh - stop) / roh
     if abstand <= 0 or abstand > min(h.max_stop, 1 / h.hebel - h.wartungsmarge):
         return None
@@ -81,18 +86,22 @@ def simuliere(o, hi, lo, c, atr, e: int, richtung: int, stop: float, h: Handel, 
 
     teile: list[tuple[float, float, bool, int]] = []  # Anteil, Kurs, Market-Order?, Kerze
     rest, akt_stop, bester, halb, grund = 1.0, stop, roh, False, ""
+    mae = 0.0  # größte Gegenbewegung seit dem Einstieg (Anteil)
     for j in range(e, ende):
         gegen, mit = (lo[j], hi[j]) if richtung > 0 else (hi[j], lo[j])
+        mae = max(mae, richtung * (roh - gegen) / roh)
         if richtung * (gegen - akt_stop) <= 0:
-            kurs = o[j] if richtung * (o[j] - akt_stop) < 0 else akt_stop
+            kurs = o[j] if richtung * (o[j] - akt_stop) < 0 and (einstieg is None or j > e) else akt_stop
             teile.append((rest, kurs, True, j))
             rest = 0.0
             grund = "Stop-Loss" if akt_stop == stop else "nachgezogener Stop"
             break
-        if art == "Halb" and not halb and richtung * (mit - eins_r) >= 0:
+        if einstieg is not None and j == e:
+            continue
+        if art == "Halb" and not halb and richtung * (mit - eins_r * (1 + richtung * durchlauf)) >= 0:
             teile.append((0.5, eins_r, False, j))
             rest, halb = 0.5, True
-        if art in ("fest", "Einstand") and richtung * (mit - ziel) >= 0:
+        if art in ("fest", "Einstand") and richtung * (mit - ziel * (1 + richtung * durchlauf)) >= 0:
             teile.append((rest, ziel, False, j))
             rest, grund = 0.0, "Take-Profit"
             break
@@ -119,7 +128,8 @@ def simuliere(o, hi, lo, c, atr, e: int, richtung: int, stop: float, h: Handel, 
     j_aus = max(t[3] for t in teile)
     return {"einstieg_idx": e, "ausstieg_idx": j_aus, "grund": grund, "stop_abstand_pct": abstand * 100,
             "kerzen": j_aus - e + 1, "marge_brutto_pct": max(-100.0, brutto * h.hebel * 100),
-            "marge_netto_pct": max(-100.0, netto * h.hebel * 100), "funding_pct": funding * h.hebel * 100}
+            "marge_netto_pct": max(-100.0, netto * h.hebel * 100), "funding_pct": funding * h.hebel * 100,
+            "kurs_netto_pct": netto * 100, "mae_pct": mae * 100}
 
 
 def handeln(coin: str, x: pd.DataFrame, signale: list[dict], h: Handel, art: str, stunden: float,

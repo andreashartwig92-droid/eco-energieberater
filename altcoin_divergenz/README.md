@@ -313,3 +313,38 @@ Ausgewählte Ergebnisse, Ø je Trade netto (1. Hälfte / 2. Hälfte):
   getesteten Kombinationen ist ein solcher Treffer auch durch Zufall zu erwarten.
 - Die Limit-Order-Rechnung ist optimistisch: Sie nimmt an, dass jede Limit-Order zum Eröffnungskurs ausgeführt wird.
   In der Praxis werden gerade die guten Trades öfter verpasst.
+
+## Fair Value Gaps (Strategie aus dem Video)
+
+`python3 -m altcoin_divergenz fvg` – Bericht: [`ergebnisse/fvg_2026-11-10.md`](ergebnisse/fvg_2026-11-10.md),
+alle Zahlen: `ergebnisse/fvg_2026-11-10_uebersicht.csv`.
+
+Das Video („Mit dieser simplen Trading Strategie mache ich 4357,23€/Tag (100x-Strategie)“) war von hier nicht abrufbar
+(YouTube-Captcha). Getestet sind deshalb die **Standard-Regeln für Fair Value Gaps** nach ICT, nicht zwingend genau
+seine: Lücke zwischen Kerze 1 und 3, Limit-Einstieg in der Mitte der Lücke (20 Kerzen gültig), Stop hinter Kerze 1,
+Ziel 2R bzw. Hälfte bei +1R plus Trailing. Varianten: alle Lücken / Standard-FVG (Lücke ≥ 0,25 ATR, kräftige
+Bewegungskerze ≥ 1 ATR) / Standard-FVG plus Trendfilter. 31 Coins mit 10x, OKX-Kurse (5 min: 3 Monate, 15 min:
+6 Monate, 1 h: 12 Monate), Gegenprobe auf Hyperliquid-Kerzen, Hyperliquid-Kosten mit Maker-Gebühr für Limit-Orders.
+
+Limit-Orders auf Kerzendaten sind heikel: Eine bloße Berührung des Limitkurses heißt nicht, dass die eigene Order in
+der Warteschlange drankommt. Deshalb zwei Annahmen: „Berührung reicht“ (optimistisch) und „Kurs läuft 0,05 % durch
+Einstiegs- und Zielkurs“ (vorsichtig). Ø je Trade netto bei 10x und 1.000 € Margin, vorsichtige Annahme:
+
+| | 5 min | 15 min | 1 h |
+| --- | --- | --- | --- |
+| Standard-FVG (mit kräftiger Bewegungskerze), Ziel 2R | −10 € | −6 € | −5 € |
+| Standard-FVG + Trendfilter, Ziel 2R | −9 € | −3 € | −0 € |
+| alle Lücken, Ziel 2R | −2 € | **+5 €** (beide Hälften +) | **+7 €** (beide Hälften +) |
+| alle Lücken, Hälfte bei +1R + Trailing | −10 € | −8 € | −8 € |
+| Kontrolle: Zufall mit gleicher Geometrie | −20 € | −24 € | −27 € |
+| **100x** (alle Lücken, Ziel 2R): liquidiert / Ø je Trade | 40 % / −212 € | 61 % / −272 € | 79 % / −372 € |
+
+- Die klassischen Fair Value Gaps nach Lehrbuch verlieren auf jedem Zeitrahmen, auch mit Trendfilter.
+- Lücken insgesamt sind deutlich besser als Zufall (die Kontrolle verliert 20–27 € je Trade), der Vorteil ist aber
+  klein (0,05–0,07 % je Trade) und hängt an der Ausführung: Muss der Kurs 0,1 % statt 0,05 % durchlaufen, bleiben auf
+  15 Minuten −1,6 € und auf 1 Stunde +1,8 € je Trade. Bei bloßer Berührung wären es +12 € bzw. +14 €.
+- Selbst mit positivem Schnitt kann das Konto pleitegehen: auf 1 Stunde mit 1.000 € Margin und bis zu 10
+  gleichzeitigen Positionen am 12.01.2026 auf 843 € (größter Rückgang 13.866 €). Mit 300 € Margin je Trade überlebt
+  dasselbe Konto, fällt aber zwischendurch auf 3.041 €.
+- **100x funktioniert in keiner Variante:** 40–85 % der Trades laufen zwischendurch mehr als 0,5 % gegen einen und
+  wären liquidiert worden. Jedes 100x-Konto ist leer.
