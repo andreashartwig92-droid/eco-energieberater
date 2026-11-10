@@ -154,3 +154,30 @@ Verlust. Ohne Kosten ist der Spiegel genau das Negative des Originals, also eben
 aber bei jedem Trade an, egal in welche Richtung. Umkehren lohnt sich nur, wenn das Original **vor** Kosten deutlich
 verliert, und zwar um mehr als die Kosten (≈ 14 € je Trade auf OKX). Das Original liegt vor Kosten aber bei
 +3 € (OKX) bzw. −1 € bis −5 € (Hyperliquid), also praktisch bei null.
+
+## 5-Minuten-Chart (Hyperliquid, 100 Altcoins, 3,5 Tage)
+
+`python3 -m altcoin_divergenz zeitrahmen` – Bericht: [`ergebnisse/zeitrahmen_5m_2026-11-10_2145.md`](ergebnisse/zeitrahmen_5m_2026-11-10_2145.md).
+Zum direkten Vergleich wurde dasselbe Skript auf die 1-Minuten-Daten angewendet:
+[`ergebnisse/zeitrahmen_1m_2026-11-10_2126.md`](ergebnisse/zeitrahmen_1m_2026-11-10_2126.md).
+
+Dieselben Regeln, gezählt in Kerzen (Zeitstopp 60 Kerzen = 5 Stunden), dieselben Coins, Gebühren, Slippage aus dem
+Orderbuch und 10.000 € Konto mit 1.000 € Margin je Trade bei 10x. Zeitraum 07.11. 09:45 – 10.11. 21:45 Uhr MEZ.
+
+| Ø je Trade netto (Anteil Gewinner) · Konto am Ende | 1 Minute | 5 Minuten |
+| --- | --- | --- |
+| Einfache klare Divergenz, alle Coins | −35 € (30 %) · 802 €, Konto leer | −29 € (36 %) · 3.233 € |
+| Einfache klare Divergenz, nur 10x-Coins | −13 € (33 %) · 2.605 € | −8 € (40 %) · 8.518 € |
+| Musterbuch 100 %, alle Coins | −35 € (28 %) · 1.564 € | −25 € (35 %) · 9.421 € |
+| Musterbuch 100 %, nur 10x-Coins | −21 € (26 %) · 8.412 € | +5 € (40 %) · 10.054 € (nur 10 Trades) |
+| Signale (einfach / Musterbuch 100 %) | 3.133 / 274 | 664 / 23 |
+| Kosten in % des Risikos je Trade | 113–127 % | 50–66 % |
+
+- Auf 5 Minuten sind die Stops etwa doppelt so weit (Ø 0,6–0,7 % statt 0,3 %). Die Kosten je Trade bleiben gleich,
+  fressen aber nur noch die Hälfte statt mehr als das ganze Risiko. Die Verluste werden dadurch kleiner, verschwinden
+  aber nicht.
+- Vor Kosten liegen alle Signalarten leicht im Plus (+6 bis +8 € je Trade), statistisch aber nicht von null zu
+  unterscheiden (einfache Divergenz, alle Coins: 95 % zwischen −1 € und +18 €). Nach Kosten sind es −8 bis −29 €.
+- Die einzige positive Zeile (Musterbuch 100 %, 10x-Coins) beruht auf 10 Trades, von denen zwei Gewinner das Ergebnis
+  tragen. Der 95-%-Bereich reicht von −48 € bis +64 € je Trade, die Zeile sagt also nichts.
+- Umkehren hilft auch auf 5 Minuten nicht (einfache Divergenz: −40 € bzw. −45 € statt −29 € je Trade).

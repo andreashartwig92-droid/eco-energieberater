@@ -1,6 +1,7 @@
-"""Marktdaten von der öffentlichen Hyperliquid-Info-API (Perpetuals, 1-Minuten-Kerzen, Orderbuch).
+"""Marktdaten von der öffentlichen Hyperliquid-Info-API (Perpetuals, Kerzen, Orderbuch).
 
-Hyperliquid stellt nur die jüngsten rund 5.000 Kerzen je Intervall bereit, bei 1 Minute also ~3,5 Tage.
+Hyperliquid stellt nur die jüngsten rund 5.000 Kerzen je Intervall bereit: bei 1 Minute ~3,5 Tage,
+bei 5 Minuten ~17 Tage.
 """
 from __future__ import annotations
 
@@ -47,12 +48,17 @@ def top_altcoins(anzahl: int = 100) -> pd.DataFrame:
     return df.head(anzahl).reset_index(drop=True)
 
 
-def lade_kerzen(coin: str, start_ms: int, ende_ms: int) -> pd.DataFrame:
-    """1-Minuten-Kerzen mit start_ms <= t < ende_ms. Minuten ohne Umsatz fehlen bei Hyperliquid;
+SCHRITT_MS = {"1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000}
+
+
+def lade_kerzen(coin: str, start_ms: int, ende_ms: int, intervall: str = "1m") -> pd.DataFrame:
+    """Kerzen mit start_ms <= t < ende_ms. Zeiträume ohne Umsatz fehlen bei Hyperliquid;
     sie werden als flache Kerze zum letzten Schlusskurs ergänzt."""
+    schritt = SCHRITT_MS[intervall]
+    gewicht = 20 + (ende_ms - start_ms) / schritt / 60  # Gewicht ~20 + 1 je 60 Kerzen, Limit 1.200 / Minute
     roh = _post({"type": "candleSnapshot",
-                 "req": {"coin": coin, "interval": "1m", "startTime": start_ms, "endTime": ende_ms}},
-                abstand=5.5)  # Gewicht ~20 + 1 je 60 Kerzen
+                 "req": {"coin": coin, "interval": intervall, "startTime": start_ms, "endTime": ende_ms}},
+                abstand=gewicht / 1200 * 60 * 1.1)
     if not roh:
         return pd.DataFrame(columns=["ts", "open", "high", "low", "close", "vol_usd"])
     df = pd.DataFrame(roh)
@@ -60,7 +66,7 @@ def lade_kerzen(coin: str, start_ms: int, ende_ms: int) -> pd.DataFrame:
                        "low": df["l"].astype(float), "close": df["c"].astype(float),
                        "vol_usd": df["v"].astype(float) * df["c"].astype(float)})
     df = df[(df["ts"] >= start_ms) & (df["ts"] < ende_ms)].drop_duplicates("ts").set_index("ts").sort_index()
-    raster = np.arange(df.index[0], df.index[-1] + 1, 60_000)
+    raster = np.arange(df.index[0], df.index[-1] + 1, schritt)
     df = df.reindex(raster)
     df["close"] = df["close"].ffill()
     for s in ("open", "high", "low"):
@@ -94,15 +100,17 @@ def slippage(coin: str, betrag_usd: float) -> float:
     return float(np.mean(kosten))
 
 
-def lade_alle(coins: list[str], start_ms: int, ende_ms: int, cache: Path) -> dict[str, pd.DataFrame]:
+def lade_alle(coins: list[str], start_ms: int, ende_ms: int, cache: Path,
+              intervall: str = "1m") -> dict[str, pd.DataFrame]:
     cache.mkdir(parents=True, exist_ok=True)
     daten = {}
     for i, coin in enumerate(coins, 1):
-        datei = cache / f"hl_{coin}_{start_ms}_{ende_ms}.csv.gz"
+        name = f"hl_{coin}_{start_ms}_{ende_ms}" if intervall == "1m" else f"hl_{coin}_{intervall}_{start_ms}_{ende_ms}"
+        datei = cache / f"{name}.csv.gz"
         if datei.exists():
             daten[coin] = pd.read_csv(datei)
             continue
-        daten[coin] = lade_kerzen(coin, start_ms, ende_ms)
+        daten[coin] = lade_kerzen(coin, start_ms, ende_ms, intervall)
         daten[coin].to_csv(datei, index=False)
         print(f"  {i}/{len(coins)} {coin}: {len(daten[coin])} Kerzen", flush=True)
     return daten
