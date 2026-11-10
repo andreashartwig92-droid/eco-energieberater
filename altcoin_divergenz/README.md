@@ -348,3 +348,35 @@ Einstiegs- und Zielkurs“ (vorsichtig). Ø je Trade netto bei 10x und 1.000 €
   dasselbe Konto, fällt aber zwischendurch auf 3.041 €.
 - **100x funktioniert in keiner Variante:** 40–85 % der Trades laufen zwischendurch mehr als 0,5 % gegen einen und
   wären liquidiert worden. Jedes 100x-Konto ist leer.
+
+## Nur ETH und eine Mustersuche nach Art quantitativer Fonds
+
+`python3 -m altcoin_divergenz eth` – Bericht: [`ergebnisse/eth_2026-11-10.md`](ergebnisse/eth_2026-11-10.md).
+
+ETH-Perpetual, OKX-Kurse (5 min: 6 Monate, 15 min: 1 Jahr, 1 h: 3 Jahre), Hyperliquid-Kosten. ETH ist sehr liquide:
+Slippage nur 0,002 % je Seite für 10.000 €, bis 25x Hebel. Konto 10.000 €, 1.000 € Margin × 10, eine Position.
+
+**Teil 1 – bisherige Strategien auf ETH** (Ø je Trade netto, 1. / 2. Hälfte):
+
+| | 5 min | 15 min | 1 h (3 Jahre) |
+| --- | --- | --- | --- |
+| Divergenz regulär, fest | 0 € (+3 / −1) | −10 € | +9 € (+16 / +3), 190 Trades, 95 %: −28 … +45 € |
+| Divergenz versteckt im Trend, Halb | −8 € | −9 € | +11 € (+38 / −11) |
+| FVG alle Lücken, fest (vorsichtig) | −6 € | 0 € (+3 / −3) | **+5 € (+2 / +7)**, 1.607 Trades, Konto 17.247 € |
+| FVG Standard, fest (vorsichtig) | −10 € | −8 € | −9 € |
+| 100 % Musterbuch | 19 Trades, −8 € | 7 Trades | 3 Trades in 3 Jahren |
+
+Wie bei den Altcoins ist nur „FVG alle Lücken, 1 h, festes Ziel“ in beiden Hälften im Plus, der 95-%-Bereich
+(−4 € … +13 €) schließt null aber ein. Alles auf 5 und 15 Minuten liegt bei null oder darunter.
+
+**Teil 2 – Mustersuche:** 8 einfache Merkmale × 3 Horizonte je Zeitrahmen, Rangkorrelation (IC) mit der späteren
+Rendite in beiden Hälften, dazu ein kombiniertes Ridge-Modell, nur mit der 1. Hälfte geschätzt.
+
+- Es gibt echte, stabile Muster: Auf 5 und 15 Minuten folgt auf steigende Kurse leicht fallende und umgekehrt
+  (IC −0,04 bis −0,07 in beiden Hälften, bei 26.000–50.000 Kerzen weit über Zufall). Das ist kurzfristige
+  Gegenbewegung (Mean Reversion), wie sie quantitative Fonds handeln.
+- Jedes Muster ist aber winzig: oberstes gegen unterstes Zehntel bringt 0,001–0,03 % je Trade. Ein- und Ausstieg
+  kosten 0,095 %. Von 72 geprüften Kombinationen liegt eine knapp über den Kosten, was bei 72 Versuchen auch Zufall
+  sein kann.
+- Das kombinierte Modell verdient in der 1. Hälfte, mit der es geschätzt wurde, und verliert in der 2. Hälfte fast
+  überall (bis −0,13 % je Trade): Überanpassung.

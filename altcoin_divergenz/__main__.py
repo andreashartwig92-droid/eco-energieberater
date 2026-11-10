@@ -9,6 +9,7 @@
   python3 -m altcoin_divergenz merkmale        # Merkmale von Gewinner- und Verlierer-Trades (siehe merkmale.py)
   python3 -m altcoin_divergenz trend           # Trendrichtung, 15 min / 1 h, Ausstiegs-Varianten (siehe trend.py)
   python3 -m altcoin_divergenz fvg             # Fair Value Gaps, 5 min / 15 min / 1 h, 10x und 100x (siehe fvg.py)
+  python3 -m altcoin_divergenz eth             # nur ETH: alle Strategien plus Mustersuche (siehe eth.py)
 """
 from __future__ import annotations
 
@@ -179,6 +180,10 @@ def main() -> None:
     if sys.argv[1:2] == ["zeitrahmen"]:
         from .zeitrahmen import main as zeitrahmen
         zeitrahmen(sys.argv[2:])
+        return
+    if sys.argv[1:2] == ["eth"]:
+        from .eth import main as eth
+        eth()
         return
     if sys.argv[1:2] == ["fvg"]:
         from .fvg import main as fvg
