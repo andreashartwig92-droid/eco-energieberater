@@ -184,3 +184,14 @@ HTML-Berichte.
 - Kundendaten gehören nicht in `wissen/`; die KI bekommt nur, was Nutzer eingeben.
 
 Tests: `python3 -m unittest tests.test_assistent` (laufen ohne Ollama und ohne API-Schlüssel).
+
+## Altcoin-Divergenz-Konzept (Backtest)
+
+Prüfung einer Trading-Idee: 100 Altcoins auf dem 1-Minuten-Chart, Trades nur bei klarer RSI/MACD-Divergenz,
+10x Hebel, 1.000 € Kapital. Echte OKX-Kursdaten, Gebühren und Slippage eingerechnet, keine echten Orders.
+Details und Ergebnisse: [`altcoin_divergenz/README.md`](altcoin_divergenz/README.md).
+
+```bash
+python3 -m altcoin_divergenz live              # letzte 2 Stunden
+python3 -m altcoin_divergenz robust --tage 7   # dieselben Regeln über 7 Tage
+```

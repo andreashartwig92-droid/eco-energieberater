@@ -6,3 +6,4 @@ berichte/*
 .env
 deploy/.env
 .venv/
+altcoin_divergenz/cache/
