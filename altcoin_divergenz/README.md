@@ -219,3 +219,32 @@ EUR in 46 %, bei JPY in 70 % und bei GBP in 93 % der Minuten keinen einzigen Han
   Signale fällt auf Samstag und Sonntag (siehe Berichte).
 
 Berichte: `ergebnisse/devisen_*.md` (je mit und ohne `_minstop0.05`).
+
+## 100 % Musterbuch, nur 10x-Coins: 5 gegen 10 Minuten
+
+Die 31 Coins mit 10x Hebel auf Hyperliquid (Liste aus dem 5-Minuten-Test). Hyperliquid liefert keine 10-Minuten-Kerzen;
+sie werden aus je zwei 5-Minuten-Kerzen gebaut (`hyperliquid.zusammenfassen`). Gleiche Regeln in Kerzen, auf 10 Minuten
+also Zeitstopp nach 10 Stunden. Konto 10.000 €, 1.000 € Margin bei 10x je Trade.
+
+```bash
+python3 -m altcoin_divergenz zeitrahmen --name zehnfach --maerkte ZEC,HYPE,SOL,... --intervall 10m --tage 3.5
+```
+
+| 100 % Musterbuch, 31 Coins mit 10x | 5 min, 3,5 Tage | 10 min, 3,5 Tage | 5 min, 16 Tage | 10 min, 16 Tage |
+| --- | --- | --- | --- | --- |
+| Trades | 10 | 5 | 46 | 20 |
+| davon mit Gewinn | 4 (40 %) | 2 (40 %) | 18 (39 %) | 8 (40 %) |
+| Ø je Trade netto | +5 € | −58 € | −4 € | −22 € |
+| 95-%-Bereich | −48 … +64 € | −173 … +55 € | −38 … +34 € | −89 … +50 € |
+| Ø je Trade ohne Kosten | +22 € | −42 € | +11 € | −6 € |
+| Konto 10.000 € am Ende | 10.054 € | 9.709 € | 9.825 € | 9.565 € |
+
+- Auf 10 Minuten gibt es 100-%-Musterbuch-Signale nur noch etwa einmal am Tag (20 in 16 Tagen über 31 Coins).
+- Die Kosten sind kein Hindernis mehr (15 % des Risikos je Trade), aber vor Kosten liegt das Ergebnis bei −6 €
+  je Trade. Zufällige Trades mit denselben Stops schneiden genauso ab (−18 € gegen −22 € netto).
+- Über 16 Tage ist 5 Minuten (−4 €) etwas besser als 10 Minuten (−22 €); beide Bereiche schließen null ein.
+  Ein Vorteil ist mit so wenigen Trades weder zu belegen noch auszuschließen.
+- Nebenbefund: die einfache klare Divergenz auf 10 Minuten lag in den 3,5 Tagen bei +11 € je Trade (Konto
+  10.925 €), über 16 Tage aber bei −7 € je Trade (Konto 9.928 €). Die 3,5 Tage waren ein günstiger Ausschnitt.
+
+Berichte: `ergebnisse/zehnfach_*.md`.

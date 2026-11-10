@@ -30,7 +30,8 @@ ORDNER = Path(__file__).resolve().parent
 ERGEBNISSE = ORDNER / "ergebnisse"
 CACHE = ORDNER / "cache"
 VORLAUF = 150  # Kerzen zum Einschwingen von RSI und MACD
-NAMEN = {60_000: "1-Minuten", 300_000: "5-Minuten", 900_000: "15-Minuten", 3_600_000: "1-Stunden"}
+NAMEN = {60_000: "1-Minuten", 300_000: "5-Minuten", 600_000: "10-Minuten", 900_000: "15-Minuten",
+         3_600_000: "1-Stunden"}
 SIGNALARTEN = ["Einfache klare Divergenz", "Musterbuch nahe 100 % (≥ 6/7)", "Musterbuch 100 % (7/7)"]
 
 
@@ -157,7 +158,8 @@ def main(argv: list[str] | None = None) -> None:
     if eigene:
         umfang = (f"Märkte: {', '.join(f'{c} (max. {m}x)' for c, m in zip(coins['coin'], coins['max_hebel']))}, "
                   "laufend parallel geprüft.")
-        slip_text = ", ".join(f"{c} {de(v * 100, 3)} %" for c, v in slip.items())
+        slip_text = (", ".join(f"{c} {de(v * 100, 3)} %" for c, v in slip.items()) if len(slip) <= 10
+                     else f"Median {de(slip.median() * 100, 3)} %")
     else:
         umfang = (f"{len(alle)} Altcoins (Top 100 nach 24-h-Umsatz ohne BTC, ETH, PAXG) laufend parallel geprüft, "
                   f"davon {len(zehnfach)} mit 10x Hebel auf Hyperliquid.")

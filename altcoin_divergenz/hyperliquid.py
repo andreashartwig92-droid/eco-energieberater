@@ -48,7 +48,19 @@ def top_altcoins(anzahl: int = 100) -> pd.DataFrame:
     return df.head(anzahl).reset_index(drop=True)
 
 
-SCHRITT_MS = {"1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000}
+SCHRITT_MS = {"1m": 60_000, "5m": 300_000, "10m": 600_000, "15m": 900_000, "1h": 3_600_000}
+# Hyperliquid liefert 10 Minuten nicht selbst; diese Kerzen werden aus zwei 5-Minuten-Kerzen gebaut.
+ZUSAMMENGESETZT = {"10m": "5m"}
+
+
+def zusammenfassen(df: pd.DataFrame, schritt: int, teil: int) -> pd.DataFrame:
+    """Feinere Kerzen zu Kerzen der Länge `schritt` zusammenfassen; unvollständige Kerzen am Rand entfallen."""
+    gruppe = df["ts"] // schritt * schritt
+    g = df.groupby(gruppe)
+    neu = pd.DataFrame({"open": g["open"].first(), "high": g["high"].max(), "low": g["low"].min(),
+                        "close": g["close"].last(), "vol_usd": g["vol_usd"].sum(), "anzahl": g.size()})
+    neu = neu[neu["anzahl"] == schritt // teil].drop(columns="anzahl")
+    return neu.rename_axis("ts").reset_index()
 
 
 def maerkte(namen: list[str]) -> pd.DataFrame:
@@ -72,6 +84,9 @@ def lade_kerzen(coin: str, start_ms: int, ende_ms: int, intervall: str = "1m") -
     """Kerzen mit start_ms <= t < ende_ms. Zeiträume ohne Umsatz fehlen bei Hyperliquid;
     sie werden als flache Kerze zum letzten Schlusskurs ergänzt."""
     schritt = SCHRITT_MS[intervall]
+    if intervall in ZUSAMMENGESETZT:
+        basis = ZUSAMMENGESETZT[intervall]
+        return zusammenfassen(lade_kerzen(coin, start_ms, ende_ms, basis), schritt, SCHRITT_MS[basis])
     gewicht = 20 + (ende_ms - start_ms) / schritt / 60  # Gewicht ~20 + 1 je 60 Kerzen, Limit 1.200 / Minute
     roh = _post({"type": "candleSnapshot",
                  "req": {"coin": coin, "interval": intervall, "startTime": start_ms, "endTime": ende_ms}},

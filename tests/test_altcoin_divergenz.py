@@ -134,5 +134,17 @@ class Musterbuch(unittest.TestCase):
             self.assertEqual(gekuerzt, [s for s in voll if s["signal_idx"] <= t - 2])
 
 
+class Zusammenfassen(unittest.TestCase):
+    def test_zehn_aus_fuenf_minuten(self):
+        from altcoin_divergenz.hyperliquid import zusammenfassen
+        fuenf = pd.DataFrame({"ts": np.arange(5) * 300_000 + 300_000,  # beginnt mitten in einer 10-Minuten-Kerze
+                              "open": [1.0, 2, 3, 4, 5], "high": [1.5, 2.5, 3.5, 4.5, 5.5],
+                              "low": [0.5, 1.5, 2.5, 3.5, 4.5], "close": [1.2, 2.2, 3.2, 4.2, 5.2],
+                              "vol_usd": [10.0, 20, 30, 40, 50]})
+        zehn = zusammenfassen(fuenf, 600_000, 300_000)
+        self.assertEqual(zehn["ts"].tolist(), [600_000, 1_200_000])  # unvollständige Rand-Kerzen entfallen
+        self.assertEqual(zehn.iloc[0][["open", "high", "low", "close", "vol_usd"]].tolist(), [2.0, 3.5, 1.5, 3.2, 50.0])
+
+
 if __name__ == "__main__":
     unittest.main()
