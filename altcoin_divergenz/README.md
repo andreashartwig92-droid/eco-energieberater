@@ -181,3 +181,41 @@ Orderbuch und 10.000 € Konto mit 1.000 € Margin je Trade bei 10x. Zeitraum 0
 - Die einzige positive Zeile (Musterbuch 100 %, 10x-Coins) beruht auf 10 Trades, von denen zwei Gewinner das Ergebnis
   tragen. Der 95-%-Bereich reicht von −48 € bis +64 € je Trade, die Zeile sagt also nichts.
 - Umkehren hilft auch auf 5 Minuten nicht (einfache Divergenz: −40 € bzw. −45 € statt −29 € je Trade).
+
+## Devisenpaare auf Hyperliquid
+
+Hyperliquid führt genau drei Devisenpaare, alle auf der HIP-3-Börse „xyz“ mit bis zu 50x Hebel: `xyz:EUR`
+(EUR/USD), `xyz:JPY` (USD/JPY) und `xyz:GBP` (GBP/USD). Alles andere dort sind Krypto-Coins, Aktien, Indizes und
+Rohstoffe. Das Konzept „100 Paare parallel“ lässt sich mit Devisen also nicht umsetzen, es bleiben drei.
+
+```bash
+python3 -m altcoin_divergenz zeitrahmen --name devisen --maerkte xyz:EUR,xyz:JPY,xyz:GBP --gebuehr 0.009 --intervall 5m --tage 3.5
+```
+
+Gleiche Signale und Regeln, 10.000 € Konto, 1.000 € Margin bei 10x je Trade. Die Märkte laufen im „Growth Mode“, die
+Gebühr ist daher mit 0,009 % je Seite angesetzt (10 % der Protokollgebühr plus gleich hoher Anteil des Betreibers).
+Slippage aus dem Orderbuch: EUR 0,014 %, JPY 0,015 %, GBP 0,032 %. Die Märkte handeln dünn: auf 1 Minute gab es bei
+EUR in 46 %, bei JPY in 70 % und bei GBP in 93 % der Minuten keinen einzigen Handel.
+
+Ø je Trade netto, Trades in Klammern:
+
+| | 5 min, 3,5 Tage | 5 min, 16,8 Tage | 1 min, 3,4 Tage |
+| --- | --- | --- | --- |
+| Einfache klare Divergenz | −8 € (14) | −9 € (66) | −7 € (52) |
+| Musterbuch ≥ 6/7 | +8 € (3) | −7 € (16) | −8 € (11) |
+| Musterbuch 100 % | −19 € (1) | −20 € (4) | −9 € (1) |
+| Konto am Ende, einfache Divergenz | 9.888 € | 9.409 € | 9.636 € |
+| dasselbe mit Mindest-Stop 0,05 % statt 0,2 % | −6 € (14) | −7 € (78) | −7 € (55) |
+
+- Es gibt kaum Signale: auf 5 Minuten etwa 4 pro Tag über alle drei Paare, Musterbuch 100 % nur 4 in 17 Tagen.
+- Vor Kosten liegt der Schnitt bei −3 € bis +1 € je Trade, also bei null. Die Divergenzen haben auch bei Devisen
+  keinen erkennbaren Vorteil. Trades mit zufälligem Zeitpunkt und zufälliger Richtung schneiden gleich gut oder
+  besser ab (17 Tage, einfache Divergenz: Zufall −6 €, Signal −9 € je Trade).
+- Die Kosten sind mit 5–6 € je Trade viel niedriger als bei Altcoins (36–41 €). Devisen bewegen sich auf 1 und 5
+  Minuten aber so wenig, dass die meisten Trades weder Stop noch Ziel erreichen und per Zeitstopp enden. Deshalb
+  bleiben die Verluste klein, Gewinne entstehen aber auch nicht.
+- Die einzige positive Zelle (+8 €, Musterbuch ≥ 6/7, 3,5 Tage) beruht auf 3 Trades und sagt nichts.
+- Die Devisen-Perps handeln auch am Wochenende, obwohl der echte Devisenmarkt dann geschlossen ist. Ein Teil der
+  Signale fällt auf Samstag und Sonntag (siehe Berichte).
+
+Berichte: `ergebnisse/devisen_*.md` (je mit und ohne `_minstop0.05`).

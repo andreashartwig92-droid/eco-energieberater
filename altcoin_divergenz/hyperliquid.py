@@ -51,6 +51,23 @@ def top_altcoins(anzahl: int = 100) -> pd.DataFrame:
 SCHRITT_MS = {"1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000}
 
 
+def maerkte(namen: list[str]) -> pd.DataFrame:
+    """Ausgewählte Märkte, auch von HIP-3-Börsen (Schreibweise "dex:NAME", z. B. "xyz:EUR")."""
+    zeilen = []
+    for dex in sorted({n.split(":")[0] if ":" in n else "" for n in namen}):
+        meta, kontexte = _post({"type": "metaAndAssetCtxs", "dex": dex} if dex else {"type": "metaAndAssetCtxs"})
+        for a, k in zip(meta["universe"], kontexte):
+            if a["name"] in namen:
+                zeilen.append({"coin": a["name"], "umsatz_24h_usd": float(k["dayNtlVlm"]),
+                               "max_hebel": int(a["maxLeverage"]), "mid": float(k["midPx"] or k["markPx"]),
+                               "growth_mode": a.get("growthMode") == "enabled"})
+    df = pd.DataFrame(zeilen)
+    fehlt = set(namen) - set(df["coin"])
+    if fehlt:
+        raise ValueError(f"Auf Hyperliquid nicht gefunden: {', '.join(sorted(fehlt))}")
+    return df.set_index("coin").loc[namen].reset_index()
+
+
 def lade_kerzen(coin: str, start_ms: int, ende_ms: int, intervall: str = "1m") -> pd.DataFrame:
     """Kerzen mit start_ms <= t < ende_ms. Zeiträume ohne Umsatz fehlen bei Hyperliquid;
     sie werden als flache Kerze zum letzten Schlusskurs ergänzt."""
@@ -105,7 +122,9 @@ def lade_alle(coins: list[str], start_ms: int, ende_ms: int, cache: Path,
     cache.mkdir(parents=True, exist_ok=True)
     daten = {}
     for i, coin in enumerate(coins, 1):
-        name = f"hl_{coin}_{start_ms}_{ende_ms}" if intervall == "1m" else f"hl_{coin}_{intervall}_{start_ms}_{ende_ms}"
+        datei_coin = coin.replace(":", "-")
+        name = (f"hl_{datei_coin}_{start_ms}_{ende_ms}" if intervall == "1m"
+                else f"hl_{datei_coin}_{intervall}_{start_ms}_{ende_ms}")
         datei = cache / f"{name}.csv.gz"
         if datei.exists():
             daten[coin] = pd.read_csv(datei)
