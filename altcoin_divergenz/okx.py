@@ -88,12 +88,12 @@ def top_altcoins(anzahl: int = 100) -> pd.DataFrame:
     return df.head(anzahl).reset_index(drop=True)
 
 
-def lade_kerzen(inst_id: str, start_ms: int, ende_ms: int) -> pd.DataFrame:
-    """Abgeschlossene 1-Minuten-Kerzen mit start_ms <= ts < ende_ms (UTC, Millisekunden)."""
+def lade_kerzen(inst_id: str, start_ms: int, ende_ms: int, bar: str = "1m") -> pd.DataFrame:
+    """Abgeschlossene Kerzen (Standard 1 Minute) mit start_ms <= ts < ende_ms (UTC, Millisekunden)."""
     zeilen: list[list[str]] = []
     nach = ende_ms
     while nach > start_ms:
-        seite = _get("/market/history-candles", instId=inst_id, bar="1m", limit=300, after=nach)
+        seite = _get("/market/history-candles", instId=inst_id, bar=bar, limit=300, after=nach)
         if not seite:
             break
         zeilen.extend(seite)
@@ -111,16 +111,17 @@ def lade_kerzen(inst_id: str, start_ms: int, ende_ms: int) -> pd.DataFrame:
 
 
 def lade_alle(inst_ids: list[str], start_ms: int, ende_ms: int, cache: Path | None = None,
-              threads: int = 4) -> dict[str, pd.DataFrame]:
+              threads: int = 4, bar: str = "1m") -> dict[str, pd.DataFrame]:
     """Kerzen für viele Instrumente parallel laden; optional als CSV im Cache-Verzeichnis ablegen."""
     if cache:
         cache.mkdir(parents=True, exist_ok=True)
 
     def eins(inst_id: str) -> tuple[str, pd.DataFrame]:
-        datei = cache / f"{inst_id}_{start_ms}_{ende_ms}.csv.gz" if cache else None
+        name = f"{inst_id}_{start_ms}_{ende_ms}" if bar == "1m" else f"{inst_id}_{bar}_{start_ms}_{ende_ms}"
+        datei = cache / f"{name}.csv.gz" if cache else None
         if datei and datei.exists():
             return inst_id, pd.read_csv(datei)
-        df = lade_kerzen(inst_id, start_ms, ende_ms)
+        df = lade_kerzen(inst_id, start_ms, ende_ms, bar)
         if datei is not None:
             df.to_csv(datei, index=False)
         return inst_id, df

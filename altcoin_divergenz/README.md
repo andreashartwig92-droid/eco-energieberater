@@ -248,3 +248,32 @@ python3 -m altcoin_divergenz zeitrahmen --name zehnfach --maerkte ZEC,HYPE,SOL,.
   10.925 €), über 16 Tage aber bei −7 € je Trade (Konto 9.928 €). Die 3,5 Tage waren ein günstiger Ausschnitt.
 
 Berichte: `ergebnisse/zehnfach_*.md`.
+
+## Merkmale von Gewinnern und Verlierern (Brainstorming-Grundlage)
+
+`python3 -m altcoin_divergenz merkmale` – Bericht: [`ergebnisse/merkmale_2026-11-10.md`](ergebnisse/merkmale_2026-11-10.md),
+alle Trades mit Merkmalen: `ergebnisse/merkmale_2026-11-10_trades.csv`.
+
+31 Coins mit 10x, 5-Minuten-Chart, alle Divergenzen mit Auslöser (Musterbuch-Basis), Hyperliquid-Kosten. Je Trade
+32 Merkmale zum Signalzeitpunkt: Musterbuch-Punkte M1–M7, Volumen (Auslöser-Kerze, 2. gegen 1. Pivot),
+Stochastik 14/3/3 (Lage, Kreuzung, eigene Divergenz), ADX, ATR, EMA 50/200, Bollinger, RSI auf 1 Stunde, Lage in der
+24-h-Spanne, BTC-Lage, Tageszeit, Wochenende, Signal-Häufung über alle Coins.
+
+Drei Zeiträume gegen Zufallsfunde: **Entdeckung** (Hyperliquid 25.10.–02.11., 767 Trades), **Prüfung** (Hyperliquid
+02.–10.11., 803 Trades) und eine unabhängige **Gegenprobe** mit denselben Coins im Oktober (OKX-Kurse 01.–24.10.,
+2.381 Trades).
+
+- Gewinner und Verlierer sehen beim Einstieg praktisch gleich aus. Beispiele (Median Gewinner / Verlierer):
+  Stochastik am 2. Pivot 20,4 / 19,6; Volumen der Auslöser-Kerze 0,67 / 0,65 × Durchschnitt; RSI-Divergenz
+  3,95 / 4,00 Punkte; Musterbuch-Punkte 3 / 3.
+- Ein automatisch gesuchter Filter aus drei Regeln hebt die Entdeckung von −3 € auf +52 € je Trade (56 % Treffer).
+  In der Prüfung bringt derselbe Filter −16 €, im Oktober −19 € je Trade: Er hat nur die Zufälle der ersten 8 Tage
+  gelernt.
+- Einige Merkmale zeigen in allen drei Zeiträumen in dieselbe Richtung, aber schwach, und der „gute“ Bereich bleibt
+  überall im Minus: Wochenende (Oktober −6 € statt −24 €), mittlerer Pivot-Abstand 11–15 Kerzen (−7 € statt −26 €),
+  Short besser als Long, mittleres Volumen der Auslöser-Kerze, keine zusätzliche Stochastik-Divergenz, *weniger*
+  Musterbuch-Punkte.
+- Die Stochastik bringt keinen stabilen Vorteil: tief überverkauft am 2. Pivot war in der Entdeckung +7 €, in
+  Prüfung und Oktober −19 € bzw. −18 € je Trade.
+- Vor Kosten liegen die Divergenzen bei +12 €, +3 € und −4 € je Trade. Ein Filter kann aus einem Signal ohne
+  Vorteil keinen Vorteil machen, er wählt dann nur Zufall aus.

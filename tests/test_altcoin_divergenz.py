@@ -146,5 +146,18 @@ class Zusammenfassen(unittest.TestCase):
         self.assertEqual(zehn.iloc[0][["open", "high", "low", "close", "vol_usd"]].tolist(), [2.0, 3.5, 1.5, 3.2, 50.0])
 
 
+class Merkmale(unittest.TestCase):
+    def test_indikatoren_grenzen_und_kein_blick_in_die_zukunft(self):
+        from altcoin_divergenz.merkmale import erweitern
+        df = _zufallskerzen(600).assign(ts=lambda x: x["ts"] * 5, vol_usd=1000.0)  # 5-Minuten-Raster
+        voll = erweitern(df)
+        for spalte in ("stoch_k", "adx"):
+            w = voll[spalte].dropna()
+            self.assertTrue(((w >= 0) & (w <= 100)).all(), spalte)
+        gekuerzt = erweitern(df.iloc[:400].copy())
+        for spalte in ("rsi_1h", "stoch_k", "adx", "ema200", "vol_schnitt"):
+            pd.testing.assert_series_equal(gekuerzt[spalte], voll[spalte].iloc[:400], check_names=False)
+
+
 if __name__ == "__main__":
     unittest.main()
