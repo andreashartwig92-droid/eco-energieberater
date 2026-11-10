@@ -131,3 +131,26 @@ Pivot-Kerze. Dazu sieben Prüfpunkte:
   das Konzept dort gar nicht umsetzbar.
 - Jeder einzelne Tag endete im Minus.
 
+
+## Umkehr-Test: gegen das Signal handeln
+
+`python3 -m altcoin_divergenz umkehr` – Bericht: [`ergebnisse/umkehr_2026-11-10.md`](ergebnisse/umkehr_2026-11-10.md).
+
+Idee: Bei 36 % Trefferquote einfach umgekehrt handeln (Short-Signal → Long, Long-Signal → Short). Getestet mit
+denselben Signalen, Einstiegen und Kosten wie oben, in zwei Formen:
+
+- **Spiegel:** exakt der Gegen-Trade. Altes Ziel = neuer Stop, alter Stop = neues Ziel (CRV 2:1).
+- **Gleiche Regeln:** Gegenrichtung, Stop im gleichen Abstand auf der anderen Seite, Ziel 2 × Stop (CRV 1:2).
+
+| Ø je Trade netto (1.000 € Margin, 10x) | Original | Spiegel | gleiche Regeln |
+| --- | --- | --- | --- |
+| OKX, 2 Stunden | −7 € (43 % Gewinner) | −20 € (49 %) | −11 € (26 %) |
+| OKX, 7 Tage | −11 € (36 %) | −16 € (59 %) | −15 € (33 %) |
+| Hyperliquid Musterbuch, alle Coins | −35 € (28 %) | −31 € (46 %) | −35 € (29 %) |
+| Hyperliquid Musterbuch, 10x-Coins | −21 € (26 %) | −9 € (63 %) | −20 € (28 %) |
+
+Die Umkehr hilft nicht. Beim Spiegel steigt die Trefferquote, aber jeder Gewinn ist nur halb so groß wie jeder
+Verlust. Ohne Kosten ist der Spiegel genau das Negative des Originals, also ebenfalls rund null. Die Kosten fallen
+aber bei jedem Trade an, egal in welche Richtung. Umkehren lohnt sich nur, wenn das Original **vor** Kosten deutlich
+verliert, und zwar um mehr als die Kosten (≈ 14 € je Trade auf OKX). Das Original liegt vor Kosten aber bei
++3 € (OKX) bzw. −1 € bis −5 € (Hyperliquid), also praktisch bei null.

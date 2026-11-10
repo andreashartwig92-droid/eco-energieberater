@@ -4,6 +4,7 @@
   python3 -m altcoin_divergenz robust --tage 7  # dieselben Regeln über 7 Tage (Stichprobe groß genug)
   python3 -m altcoin_divergenz live --kerzen ergebnisse/<datei>_kerzen.csv.gz   # gespeicherten Lauf wiederholen
   python3 -m altcoin_divergenz muster          # Musterbuch-Divergenzen auf Hyperliquid (siehe musterbuch.py)
+  python3 -m altcoin_divergenz umkehr          # gegen das Signal handeln (siehe umkehr.py)
 """
 from __future__ import annotations
 
@@ -170,6 +171,10 @@ def main() -> None:
     if sys.argv[1:2] == ["muster"]:
         from .musterbuch import main as muster
         muster(sys.argv[2:])
+        return
+    if sys.argv[1:2] == ["umkehr"]:
+        from .umkehr import main as umkehr
+        umkehr()
         return
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("modus", choices=["live", "robust"])

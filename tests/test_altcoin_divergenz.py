@@ -1,9 +1,10 @@
 import unittest
+from dataclasses import replace
 
 import numpy as np
 import pandas as pd
 
-from altcoin_divergenz.backtest import Handel, simuliere
+from altcoin_divergenz.backtest import Handel, simuliere, umgekehrt
 from altcoin_divergenz.muster import musterdivergenzen
 from altcoin_divergenz.strategie import Parameter, divergenzen, indikatoren, rsi
 
@@ -77,6 +78,18 @@ class Simulation(unittest.TestCase):
         t = simuliere(self._df(100.2, 98.0), 1, -1, 100.5, Handel(gebuehr=0, slippage=0))
         self.assertEqual(t["grund"], "Take-Profit")
         self.assertIsNone(simuliere(self._df(100.2, 99.8), 1, 1, 90.0, Handel()))
+
+    def test_umkehr(self):
+        df, h = self._df(101.5, 99.8), Handel(gebuehr=0, slippage=0)
+        normal = simuliere(df, 1, 1, 99.5, h)                                   # Long trifft Ziel 101: +10 %
+        spiegel = umgekehrt(df, 1, 1, 99.5, replace(h, umkehr="spiegel"))     # Short, Stop 101, Ziel 99,5
+        gleich = umgekehrt(df, 1, 1, 99.5, replace(h, umkehr="gleich"))       # Short, Stop 100,5, Ziel 99
+        self.assertAlmostEqual(normal["marge_brutto_pct"], 10.0)
+        self.assertAlmostEqual(spiegel["marge_brutto_pct"], -10.0)
+        self.assertAlmostEqual(spiegel["stop"], 101.0)
+        self.assertAlmostEqual(spiegel["ziel"], 99.5)
+        self.assertAlmostEqual(gleich["marge_brutto_pct"], -5.0)
+        self.assertAlmostEqual(gleich["ziel"], 99.0)
 
 
 def _musterbuch_kerzen(**aenderung) -> pd.DataFrame:

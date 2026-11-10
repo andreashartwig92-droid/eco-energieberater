@@ -1,7 +1,7 @@
 """Trade-Simulation mit Hebel, Gebühren, Slippage, Stop-Loss, Take-Profit und Zeitstopp."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 import pandas as pd
@@ -18,6 +18,7 @@ class Handel:
     max_stop: float = 0.03       # weitere Stops (> 3 %, also > 30 % der Margin) -> kein Trade
     max_halten: int = 60         # Zeitstopp nach 60 Minuten
     wartungsmarge: float = 0.005  # für den Liquidationspreis (isolierte Margin)
+    umkehr: str = ""             # "" = wie signalisiert, "spiegel" oder "gleich" = Gegenrichtung (siehe umgekehrt)
 
 
 def simuliere(df: pd.DataFrame, einstieg: int, richtung: int, stop: float, h: Handel) -> dict | None:
@@ -85,6 +86,27 @@ def simuliere(df: pd.DataFrame, einstieg: int, richtung: int, stop: float, h: Ha
     }
 
 
+def umgekehrt(df: pd.DataFrame, einstieg: int, richtung: int, stop: float, h: Handel) -> dict | None:
+    """Gegen das Signal handeln. Es werden genau die Signale genommen, die auch normal gehandelt würden.
+
+    "spiegel": exakt der Gegen-Trade – altes Ziel wird Stop, alter Stop wird Ziel (CRV 2:1 statt 1:2).
+    "gleich":  Gegenrichtung mit denselben Regeln – Stop im selben Abstand auf der anderen Seite, Ziel 2 × Stop.
+    """
+    if einstieg >= len(df):
+        return None
+    roh = df["open"].iat[einstieg]
+    abstand = richtung * (roh - stop) / roh
+    if abstand <= 0 or abstand > min(h.max_stop, 1 / h.hebel - h.wartungsmarge):
+        return None
+    abstand = max(abstand, h.min_stop)
+    if h.umkehr == "spiegel":
+        h2 = replace(h, crv=1 / h.crv, min_stop=0.0, max_stop=h.max_stop * h.crv)
+        return simuliere(df, einstieg, -richtung, roh * (1 + richtung * h.crv * abstand), h2)
+    if h.umkehr == "gleich":
+        return simuliere(df, einstieg, -richtung, roh * (1 + richtung * abstand), h)
+    raise ValueError(f"unbekannte Umkehr: {h.umkehr}")
+
+
 def trades_fuer_coin(coin: str, df: pd.DataFrame, signale: list[dict], ab_idx: int, h: Handel) -> list[dict]:
     """Signale ab Kerze `ab_idx` handeln; je Coin höchstens eine offene Position."""
     frei_ab = ab_idx
@@ -95,13 +117,14 @@ def trades_fuer_coin(coin: str, df: pd.DataFrame, signale: list[dict], ab_idx: i
             continue
         richtung = 1 if s["richtung"] == "long" else -1
         stop = s["pivot_preis"] * (1 - richtung * h.stop_puffer)
-        t = simuliere(df, e, richtung, stop, h)
+        t = umgekehrt(df, e, richtung, stop, h) if h.umkehr else simuliere(df, e, richtung, stop, h)
         if t is None:
             continue
         frei_ab = t["ausstieg_idx"] + 1
         t.update({
             "coin": coin,
-            "richtung": s["richtung"],
+            "richtung": ("short" if richtung > 0 else "long") if h.umkehr else s["richtung"],
+            "signal": s["richtung"],
             "signal_zeit": pd.to_datetime(df["ts"].iat[s["signal_idx"]], unit="ms", utc=True),
             "einstieg_zeit": pd.to_datetime(df["ts"].iat[e], unit="ms", utc=True),
             "ausstieg_zeit": pd.to_datetime(df["ts"].iat[t["ausstieg_idx"]], unit="ms", utc=True),
