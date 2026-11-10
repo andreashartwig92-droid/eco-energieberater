@@ -10,7 +10,10 @@ Zukunft und rechnet jeden Trade mit Gebühren und Slippage durch. Es werden **ke
 python3 -m altcoin_divergenz live              # letzte 2 Stunden (plus 5 h Vorlauf für die Indikatoren)
 python3 -m altcoin_divergenz robust --tage 7   # dieselben Regeln über 7 Tage
 python3 -m altcoin_divergenz live --kerzen altcoin_divergenz/ergebnisse/live_2026-11-10_2113_kerzen.csv.gz
+python3 -m altcoin_divergenz muster            # nur Musterbuch-Divergenzen, Hyperliquid, 10.000 € Konto
 ```
+
+Zweiter Test weiter unten: [Musterbuch-Divergenzen auf Hyperliquid](#musterbuch-divergenzen-auf-hyperliquid).
 
 Ergebnisse landen in `altcoin_divergenz/ergebnisse/` (Bericht `.md`, Tradeliste `.csv`, beim Live-Lauf auch
 die Kerzen zum exakten Wiederholen). Tests: `python3 -m unittest tests.test_altcoin_divergenz`.
@@ -81,3 +84,50 @@ Vollständige Berichte: [`ergebnisse/live_2026-11-10_2113.md`](ergebnisse/live_2
   derselben Kerze, zählt der Stop (konservativ).
 - 7 Tage sind ein einzelnes Marktumfeld. Für ein abschließendes Urteil wären mehrere Monate nötig, das
   Ergebnis netto liegt aber so deutlich im Minus, dass sich daran wenig ändern dürfte.
+
+## Musterbuch-Divergenzen auf Hyperliquid
+
+**Fragestellung:** Alle 100 Altcoins laufend parallel auf dem 1-Minuten-Chart prüfen, aber nur traden, wenn die
+Divergenz wie aus dem Lehrbuch aussieht. Gibt es kein Musterbuch-Signal, wird nicht gehandelt. Konto 10.000 €, jeder
+Trade 1.000 € Margin mit 10x Hebel (= 10.000 € Position), damit höchstens 10 Trades gleichzeitig.
+
+Daten: Hyperliquid-Perpetuals, die 100 umsatzstärksten Altcoins (ohne BTC, ETH, PAXG), 1-Minuten-Kerzen über die
+gesamte Historie, die Hyperliquid herausgibt (die jüngsten 5.000 Minuten = 07.11. 12:36 bis 10.11. 21:26 Uhr MEZ).
+Gebühr: Taker 0,045 % je Seite. Slippage je Coin aus dem Orderbuch für eine 10.000-€-Order gemessen
+(Momentaufnahme 10.11. abends).
+
+**Musterbuch-Checkliste** (`muster.py`). Pflicht ist eine reguläre Divergenz aus zwei sauberen Swing-Pivots im Abstand
+von 8–60 Kerzen und ein Auslöser: Schlusskurs über dem Hoch (Long) bzw. unter dem Tief (Short) der zweiten
+Pivot-Kerze. Dazu sieben Prüfpunkte:
+
+| | Long (bullisch) – Short spiegelbildlich |
+| --- | --- |
+| M1 | RSI am ersten Tief ≤ 30 (überverkauft) |
+| M2 | RSI-Tief mindestens 5 Punkte höher |
+| M3 | MACD-Histogramm am ersten Tief negativ, am zweiten höher |
+| M4 | MACD-Linie am zweiten Tief ebenfalls höher |
+| M5 | RSI-Verbindungslinie sauber, kein RSI-Wert dazwischen darunter |
+| M6 | Kurs-Verbindungslinie sauber, keine Kerze dazwischen darunter |
+| M7 | zwei getrennte Swings: RSI erholt sich dazwischen um mindestens 10 Punkte |
+
+„100 % Musterbuch“ = 7/7, „nahe 100 %“ = mindestens 6/7. Beispiele im Chart:
+[`ergebnisse/hyperliquid_2026-11-10_2126_beispiele.png`](ergebnisse/hyperliquid_2026-11-10_2126_beispiele.png).
+
+**Ergebnis** (Bericht mit allen Trades: [`ergebnisse/hyperliquid_2026-11-10_2126.md`](ergebnisse/hyperliquid_2026-11-10_2126.md)):
+
+| 3,4 Tage, 10.000 € Konto | Trades | Treffer | Ø je Trade | Konto am Ende | ohne Kosten |
+| --- | --- | --- | --- | --- | --- |
+| 100 % Musterbuch, alle 100 Coins (10x angenommen) | 220 | 28 % | −35 € | 1.564 € (−8.436 €) | −379 € |
+| 100 % Musterbuch, nur die 31 Coins mit 10x auf Hyperliquid | 76 | 26 % | −21 € | 8.412 € (−1.588 €) | −403 € |
+| ≥ 6/7, alle Coins | 253 | 31 % | −33 € | 952 €, danach keine Margin mehr | +1.600 € |
+| ≥ 6/7, nur 10x-Coins | 232 | 32 % | −16 € | 6.415 € (−3.585 €) | +3 € |
+
+- Musterbuch-Signale sind seltener, aber nicht selten: rund **85 pro Tag** über 100 Coins (4 % aller Divergenzen).
+- Sie sind **nicht besser als Zufall**. Ohne jede Kosten liegt der Schnitt bei −1 € je Trade (95 %: −7 … +4 €).
+  Trades mit zufälligem Coin, Zeitpunkt und Richtung kommen netto auf −34 €, Musterbuch auf −35 €.
+- Die Kosten fressen den Rest: Ø 38 € je Trade, davon 9 € Gebühren, der Rest Slippage. Bei kleinen Coins kostet eine
+  10.000-€-Market-Order bis zu 1 % je Seite.
+- **Hebel:** Nur 31 der 100 Coins erlauben auf Hyperliquid 10x, 36 nur 5x, 33 nur 3x. Für die übrigen 69 Coins ist
+  das Konzept dort gar nicht umsetzbar.
+- Jeder einzelne Tag endete im Minus.
+

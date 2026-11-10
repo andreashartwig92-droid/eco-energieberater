@@ -3,10 +3,12 @@
   python3 -m altcoin_divergenz live            # letzte 2 Stunden, 100 Altcoins, 1-Minuten-Chart
   python3 -m altcoin_divergenz robust --tage 7  # dieselben Regeln über 7 Tage (Stichprobe groß genug)
   python3 -m altcoin_divergenz live --kerzen ergebnisse/<datei>_kerzen.csv.gz   # gespeicherten Lauf wiederholen
+  python3 -m altcoin_divergenz muster          # Musterbuch-Divergenzen auf Hyperliquid (siehe musterbuch.py)
 """
 from __future__ import annotations
 
 import argparse
+import sys
 import time
 from dataclasses import replace
 from pathlib import Path
@@ -165,6 +167,10 @@ def bericht(titel: str, daten, coins: pd.DataFrame, ab_ts: int, ende_ms: int, p:
 
 
 def main() -> None:
+    if sys.argv[1:2] == ["muster"]:
+        from .musterbuch import main as muster
+        muster(sys.argv[2:])
+        return
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("modus", choices=["live", "robust"])
     ap.add_argument("--minuten", type=int, default=120, help="Testfenster für 'live' (Standard 120)")

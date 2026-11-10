@@ -108,6 +108,7 @@ def trades_fuer_coin(coin: str, df: pd.DataFrame, signale: list[dict], ab_idx: i
             "rsi1": s["rsi1"],
             "rsi2": s["rsi2"],
         })
+        t.update({k: s[k] for k in ("erfuellt", "fehlt") if k in s})
         trades.append(t)
     return trades
 
@@ -177,3 +178,37 @@ def konto(trades: pd.DataFrame, marge_je_trade: float, max_parallel: int | None,
         spitze = max(spitze, stand)
     return {"trades": len(g), "pnl_eur": float(kurve[-1]), "max_drawdown_eur": float(drawdown),
             "max_parallel": spitze}
+
+
+def konto_mit_kapital(trades: pd.DataFrame, kapital: float, marge: float,
+                      spalte: str = "marge_netto_pct") -> dict:
+    """Konto mit festem Margin-Einsatz je Trade. Ein Trade wird nur eröffnet, wenn freie Margin
+    (realisiertes Kapital minus gebundene Margin) für ihn reicht. Gleichzeitige Signale werden in der
+    Reihenfolge der Tabelle bedient (vorher nach Zeit sortieren)."""
+    stand = kapital
+    offen: list[tuple[pd.Timestamp, float]] = []
+    genommen, kurve, zeiten = [], [kapital], [None]
+    for _, z in trades.iterrows():
+        for a in sorted([o for o in offen if o[0] < z["einstieg_zeit"]], key=lambda o: o[0]):
+            stand += a[1]
+            kurve.append(stand)
+            zeiten.append(a[0])
+        offen = [o for o in offen if o[0] >= z["einstieg_zeit"]]
+        if stand - marge * len(offen) < marge:
+            continue
+        offen.append((z["ausstieg_zeit"], z[spalte] / 100 * marge))
+        genommen.append(z)
+    for a in sorted(offen, key=lambda o: o[0]):
+        stand += a[1]
+        kurve.append(stand)
+        zeiten.append(a[0])
+    k = np.array(kurve)
+    return {
+        "trades": len(genommen),
+        "endstand": float(stand),
+        "pnl": float(stand - kapital),
+        "max_drawdown": float(np.max(np.maximum.accumulate(k) - k)),
+        "tiefster_stand": float(k.min()),
+        "genommen": pd.DataFrame(genommen),
+        "kurve": pd.Series(k[1:], index=pd.DatetimeIndex(zeiten[1:])) if len(k) > 1 else pd.Series(dtype=float),
+    }

@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from altcoin_divergenz.backtest import Handel, simuliere
+from altcoin_divergenz.muster import musterdivergenzen
 from altcoin_divergenz.strategie import Parameter, divergenzen, indikatoren, rsi
 
 
@@ -76,6 +77,48 @@ class Simulation(unittest.TestCase):
         t = simuliere(self._df(100.2, 98.0), 1, -1, 100.5, Handel(gebuehr=0, slippage=0))
         self.assertEqual(t["grund"], "Take-Profit")
         self.assertIsNone(simuliere(self._df(100.2, 99.8), 1, 1, 90.0, Handel()))
+
+
+def _musterbuch_kerzen(**aenderung) -> pd.DataFrame:
+    n = 40
+    low = np.full(n, 100.0)
+    low[10], low[25] = 95.0, 94.0
+    r = np.full(n, 50.0)
+    r[10], r[25] = 25.0, 35.0
+    hist = np.zeros(n)
+    hist[10], hist[25] = -1.0, -0.5
+    macd = np.zeros(n)
+    macd[10], macd[25] = -2.0, -1.0
+    df = pd.DataFrame({"low": low, "high": low + 1, "close": low + 0.5, "rsi": r, "hist": hist, "macd": macd})
+    for spalte, werte in aenderung.items():
+        for i, v in werte.items():
+            df.loc[i, spalte] = v
+    return df
+
+
+class Musterbuch(unittest.TestCase):
+    def test_lehrbuch_bullisch(self):
+        s = musterdivergenzen(_musterbuch_kerzen())
+        self.assertEqual(len(s), 1)
+        self.assertEqual((s[0]["richtung"], s[0]["erfuellt"], s[0]["fehlt"]), ("long", 7, ""))
+        self.assertEqual(s[0]["signal_idx"], 28)  # Bestätigung nach 3 Kerzen, Schluss über Pivot-Hoch
+
+    def test_rsi_linie_durchbrochen(self):
+        s = musterdivergenzen(_musterbuch_kerzen(rsi={18: 26.0}))
+        self.assertEqual((s[0]["erfuellt"], s[0]["fehlt"]), (6, "M5 RSI-Linie sauber"))
+
+    def test_ohne_ausloeser_kein_signal(self):
+        nach = {i: 94.5 for i in range(26, 40)}
+        df = _musterbuch_kerzen(low=nach, high={i: 95.0 for i in range(26, 40)}, close={i: 94.8 for i in range(26, 40)})
+        self.assertEqual(musterdivergenzen(df), [])
+
+    def test_kein_blick_in_die_zukunft(self):
+        df = _zufallskerzen(3000, seed=5)
+        voll = musterdivergenzen(indikatoren(df))
+        self.assertGreater(len(voll), 0)
+        for t in (700, 1500, 2999):
+            gekuerzt = musterdivergenzen(indikatoren(df.iloc[:t].copy()))
+            self.assertEqual(gekuerzt, [s for s in voll if s["signal_idx"] <= t - 2])
 
 
 if __name__ == "__main__":
