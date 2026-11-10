@@ -159,5 +159,44 @@ class Merkmale(unittest.TestCase):
             pd.testing.assert_series_equal(gekuerzt[spalte], voll[spalte].iloc[:400], check_names=False)
 
 
+class Trend(unittest.TestCase):
+    def _kerzen(self):
+        # Einstieg Kerze 1 bei 100, Stop 99 (R = 1); Kerze 2 erreicht +1,2, Kerze 3 fällt auf 99,9 zurück
+        o = np.array([100.0, 100.0, 100.4, 100.8, 100.0, 100.0])
+        hi = np.array([100.2, 100.5, 101.2, 100.8, 100.2, 100.2])
+        lo = np.array([99.8, 99.5, 100.2, 99.9, 99.8, 99.8])
+        c = np.array([100.0, 100.4, 100.8, 100.0, 100.0, 100.0])
+        return o, hi, lo, c, np.full(6, 0.5)
+
+    def test_ausstiegsarten(self):
+        from altcoin_divergenz.trend import simuliere as sim
+        h = Handel(gebuehr=0, slippage=0, min_stop=0, max_stop=0.05)
+        ergebnis = {art: sim(*self._kerzen(), 1, 1, 99.0, h, art, 0.0) for art in ("fest", "Einstand", "Trailing", "Halb")}
+        self.assertEqual(ergebnis["fest"]["grund"], "offen (letzter Kurs)")
+        self.assertAlmostEqual(ergebnis["Einstand"]["marge_brutto_pct"], 0.0)       # Stop auf Einstand
+        self.assertAlmostEqual(ergebnis["Trailing"]["marge_brutto_pct"], 2.0)       # 101,2 - 2 ATR = 100,2
+        self.assertAlmostEqual(ergebnis["Halb"]["marge_brutto_pct"], 6.0)           # ½ bei 101, ½ bei 100,2
+        self.assertEqual(ergebnis["Halb"]["grund"], "nachgezogener Stop")
+
+    def test_funding_longs_zahlen(self):
+        from altcoin_divergenz.trend import FUNDING_JE_STUNDE, simuliere as sim
+        h = Handel(gebuehr=0, slippage=0, min_stop=0, max_stop=0.05)
+        ohne = sim(*self._kerzen(), 1, 1, 99.0, h, "fest", 0.0)
+        mit = sim(*self._kerzen(), 1, 1, 99.0, h, "fest", 1.0)
+        self.assertAlmostEqual(ohne["marge_netto_pct"] - mit["marge_netto_pct"],
+                               10 * FUNDING_JE_STUNDE * ohne["kerzen"] * 100)
+
+    def test_versteckte_divergenz_im_aufwaertstrend(self):
+        from altcoin_divergenz.muster import trendsignale
+        df = _musterbuch_kerzen(low={25: 96.0}, rsi={10: 40.0, 25: 35.0}).assign(ema50=95.0, ema200=90.0)
+        s = trendsignale(df)
+        self.assertEqual([(x["richtung"], x["pivot1"], x["pivot2"], x["signal_idx"]) for x in s],
+                         [("long", 10, 25, 28)])
+        df_ohne = df.assign(rsi=df["rsi"].where(df.index != 25, 41.0))  # RSI höheres Tief: keine versteckte Divergenz
+        self.assertEqual(trendsignale(df_ohne), [])
+        self.assertEqual(len(trendsignale(df_ohne, mit_rsi=False)), 1)      # Kontrolle ohne RSI-Bedingung
+        self.assertEqual(trendsignale(df.assign(ema50=85.0)), [])            # kein Aufwärtstrend
+
+
 if __name__ == "__main__":
     unittest.main()

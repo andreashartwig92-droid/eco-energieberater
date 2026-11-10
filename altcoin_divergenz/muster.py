@@ -52,12 +52,56 @@ def _linie_sauber(werte: np.ndarray, a: int, b: int, oben: bool) -> bool:
     return bool(np.all(werte[i] >= linie) if oben else np.all(werte[i] <= linie))
 
 
+def _ausloeser(preis: np.ndarray, hi: np.ndarray, lo: np.ndarray, c: np.ndarray, p2: int, tief: bool,
+               m: Muster) -> int | None:
+    """Erste Kerze ab der Pivot-Bestätigung (höchstens `ausloeser_kerzen` später), die jenseits der Pivot-Kerze
+    schließt (Long: über ihrem Hoch, Short: unter ihrem Tief), bevor das Pivot verletzt wird."""
+    s = 1 if tief else -1
+    for t in range(p2 + m.rechts, min(p2 + m.rechts + m.ausloeser_kerzen + 1, len(c) - 1)):
+        if s * (preis[t] - preis[p2]) < 0:
+            return None
+        if s * (c[t] - (hi[p2] if tief else lo[p2])) > 0:
+            return t
+    return None
+
+
+def trendsignale(df: pd.DataFrame, m: Muster = Muster(), mit_rsi: bool = True, rsi_abstand: float = 2.0) -> list[dict]:
+    """Einstiege IN Trendrichtung. `df` braucht zusätzlich ema50 und ema200.
+
+    Versteckte bullische Divergenz (mit_rsi=True): Aufwärtstrend (Schluss über EMA 200, EMA 50 über EMA 200),
+    Kurs macht ein HÖHERES Tief, der RSI ein um mindestens `rsi_abstand` Punkte TIEFERES Tief -> Long.
+    Versteckte bärische Divergenz spiegelbildlich im Abwärtstrend -> Short.
+    mit_rsi=False ist die Kontrolle: derselbe Rücksetzer im Trend (höheres Tief bzw. tieferes Hoch mit Auslöser)
+    ganz ohne RSI-Bedingung. Auslöser, Pivot-Regeln und Abstände wie bei musterdivergenzen."""
+    hi, lo, c = df["high"].to_numpy(), df["low"].to_numpy(), df["close"].to_numpy()
+    r, e50, e200 = df["rsi"].to_numpy(), df["ema50"].to_numpy(), df["ema200"].to_numpy()
+    signale = []
+    for richtung, tief in (("long", True), ("short", False)):
+        preis = lo if tief else hi
+        s = 1 if tief else -1
+        piv = pivots(preis, m.links, m.rechts, tief)
+        for k in range(1, len(piv)):
+            p2 = piv[k]
+            p1 = next((q for q in piv[:k][::-1] if m.min_abstand <= p2 - q <= m.max_abstand), None)
+            if p1 is None or np.isnan(r[p1]) or np.isnan(r[p2]):
+                continue
+            if not s * (preis[p2] - preis[p1]) > 0:  # höheres Tief bzw. tieferes Hoch
+                continue
+            if mit_rsi and not s * (r[p1] - r[p2]) >= rsi_abstand:  # RSI tieferes Tief bzw. höheres Hoch
+                continue
+            t = _ausloeser(preis, hi, lo, c, p2, tief, m)
+            if t is None or not (s * (c[t] - e200[t]) > 0 and s * (e50[t] - e200[t]) > 0):
+                continue
+            signale.append({"richtung": richtung, "pivot1": int(p1), "pivot2": int(p2), "signal_idx": int(t),
+                            "pivot_preis": float(preis[p2]), "rsi1": float(r[p1]), "rsi2": float(r[p2])})
+    return sorted(signale, key=lambda x: x["signal_idx"])
+
+
 def musterdivergenzen(df: pd.DataFrame, m: Muster = Muster()) -> list[dict]:
     """Alle Divergenzen mit erfülltem Auslöser, je mit Checkliste und Erfüllungsgrad.
     `df` braucht open/high/low/close sowie rsi, macd, hist (siehe strategie.indikatoren)."""
     hi, lo, c = df["high"].to_numpy(), df["low"].to_numpy(), df["close"].to_numpy()
     r, ml, h = df["rsi"].to_numpy(), df["macd"].to_numpy(), df["hist"].to_numpy()
-    n = len(df)
     signale = []
     for richtung, tief in (("long", True), ("short", False)):
         preis = lo if tief else hi
@@ -81,14 +125,7 @@ def musterdivergenzen(df: pd.DataFrame, m: Muster = Muster()) -> list[dict]:
                 _linie_sauber(preis, p1, p2, oben=tief),
                 len(zwischen) > 0 and erholung >= m.rsi_erholung,
             ]
-            # Auslöser: Schluss jenseits der Pivot-Kerze, bevor das Pivot verletzt wird
-            ausloeser = None
-            for t in range(p2 + m.rechts, min(p2 + m.rechts + m.ausloeser_kerzen + 1, n - 1)):
-                if s * (preis[t] - preis[p2]) < 0:
-                    break
-                if s * (c[t] - (hi[p2] if tief else lo[p2])) > 0:
-                    ausloeser = t
-                    break
+            ausloeser = _ausloeser(preis, hi, lo, c, p2, tief, m)
             if ausloeser is None:
                 continue
             signale.append({

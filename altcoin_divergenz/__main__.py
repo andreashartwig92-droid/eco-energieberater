@@ -7,6 +7,7 @@
   python3 -m altcoin_divergenz umkehr          # gegen das Signal handeln (siehe umkehr.py)
   python3 -m altcoin_divergenz zeitrahmen      # 5-Minuten-Chart, Hyperliquid (siehe zeitrahmen.py)
   python3 -m altcoin_divergenz merkmale        # Merkmale von Gewinner- und Verlierer-Trades (siehe merkmale.py)
+  python3 -m altcoin_divergenz trend           # Trendrichtung, 15 min / 1 h, Ausstiegs-Varianten (siehe trend.py)
 """
 from __future__ import annotations
 
@@ -177,6 +178,10 @@ def main() -> None:
     if sys.argv[1:2] == ["zeitrahmen"]:
         from .zeitrahmen import main as zeitrahmen
         zeitrahmen(sys.argv[2:])
+        return
+    if sys.argv[1:2] == ["trend"]:
+        from .trend import main as trend
+        trend()
         return
     if sys.argv[1:2] == ["merkmale"]:
         from .merkmale import main as merkmale

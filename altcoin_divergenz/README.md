@@ -277,3 +277,39 @@ Drei Zeiträume gegen Zufallsfunde: **Entdeckung** (Hyperliquid 25.10.–02.11.,
   Prüfung und Oktober −19 € bzw. −18 € je Trade.
 - Vor Kosten liegen die Divergenzen bei +12 €, +3 € und −4 € je Trade. Ein Filter kann aus einem Signal ohne
   Vorteil keinen Vorteil machen, er wählt dann nur Zufall aus.
+
+## Verbesserungsversuch: Trendrichtung, 15 min / 1 h, bessere Ausstiege
+
+`python3 -m altcoin_divergenz trend` – Bericht: [`ergebnisse/trend_2026-11-10.md`](ergebnisse/trend_2026-11-10.md),
+alle Kombinationen als Tabelle: `ergebnisse/trend_2026-11-10_uebersicht.csv`.
+
+31 Coins mit 10x, OKX-Kurse mit langer Historie (15 Minuten: 11.05.–10.11.2026, 1 Stunde: 10.11.2025–10.11.2026,
+Kerzen werden beim Lauf von OKX geladen), Hyperliquid-Kosten plus Funding (0,00125 % je Stunde, Longs zahlen).
+Vier Signalarten × vier Ausstiege × zwei Kostenvarianten, jeder Zeitraum in zwei Hälften geteilt:
+
+- **Signale:** reguläre Divergenz gegen den Trend (alle bzw. 100 % Musterbuch), **versteckte Divergenz in
+  Trendrichtung** (`muster.trendsignale`: Aufwärtstrend, Kurs höheres Tief, RSI tieferes Tief → Long; spiegelbildlich
+  Short) und als Kontrolle derselbe Rücksetzer im Trend ohne RSI-Bedingung.
+- **Ausstiege:** fest (Ziel 2R), Einstand ab +1R, 2-ATR-Trailing ohne Ziel, Hälfte bei +1R plus Trailing.
+- **Kosten:** alles als Market-Order bzw. Einstieg und Ziele als Limit-Order (Maker 0,015 %, ohne Slippage).
+
+Ausgewählte Ergebnisse, Ø je Trade netto (1. Hälfte / 2. Hälfte):
+
+| | Market-Orders | Limit-Orders für Einstieg und Ziel | ohne Kosten |
+| --- | --- | --- | --- |
+| 1 h, versteckt im Trend, Halb + Trailing (1.303 Trades) | −4 € (−6 / −1) | **+4 € (+1 / +6)**, Konto 12.188 € | +11 € |
+| 1 h, versteckt im Trend, fest (1.251) | −6 € (−11 / −1) | +2 € (−3 / +7) | +9 € |
+| 15 min, versteckt im Trend, fest (3.157) | −5 € (−10 / −1) | +3 € (−2 / +7) | +10 € |
+| 1 h, regulär (alle), Trailing (2.004) | −0 € (+10 / −11) | +6 € (+17 / −4) | +16 € |
+| 15 min, regulär (alle), fest (5.257) | −20 € (−20 / −19) | −12 € | −5 € |
+| 1 h, Kontrolle ohne RSI, fest (4.672) | −7 € | +0 € | +7 € |
+
+- In Trendrichtung zu handeln ist der deutlichste Fortschritt: vor Kosten +9 bis +11 € je Trade auf 15 Minuten und
+  1 Stunde, gegen den Trend auf 15 Minuten −5 bis 0 €.
+- Die versteckte Divergenz schlägt den gleichen Rücksetzer ohne RSI-Bedingung um 2–4 € je Trade. Die Divergenz trägt
+  also etwas bei, aber wenig.
+- Netto im Plus nur mit Limit-Orders, und nur eine Kombination in beiden Hälften: 1 Stunde, versteckt im Trend,
+  Hälfte bei +1R und Rest mit Trailing-Stop. Der 95-%-Bereich (−6 € … +13 €) schließt null aber ein, und bei 64
+  getesteten Kombinationen ist ein solcher Treffer auch durch Zufall zu erwarten.
+- Die Limit-Order-Rechnung ist optimistisch: Sie nimmt an, dass jede Limit-Order zum Eröffnungskurs ausgeführt wird.
+  In der Praxis werden gerade die guten Trades öfter verpasst.
