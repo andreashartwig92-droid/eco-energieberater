@@ -52,6 +52,28 @@ Die Rechnung ist vereinfacht (pauschale CLTD- und Solarfaktoren, Einzonen-Stunde
 und zeigt Aufbau und Inhalt der Unterlagen. Für Bauanträge werden die Berechnungen mit ACCA-anerkannter bzw. vom
 Code Official zugelassener Software und Standortdaten erstellt.
 
+## Weatherization & Utility Programs (USA)
+
+Unterlagen eines Auftrags im Weatherization Assistance Program (WAP) bzw. in einkommensabhängigen
+Utility-Programmen, wie sie Energieberater als Angestellte oder Subunternehmer von Agenturen und
+Sanierungsfirmen erstellen. Fiktives Ranch-Haus von 1955 in New Jersey (Klimazone 4A), englisch, US Letter:
+
+| Datei | Inhalt |
+| --- | --- |
+| `beispiele/usa_wap_musterhaus_audit.pdf` | Home Energy Audit Report: Abrechnungsanalyse (Gradtag-Regression, Normalisierung, Kalibrierung), Blower Door, CAZ/CO/Gasleck, Savings-to-Investment Ratio je Maßnahme allein und in Paketreihenfolge, H&S-Maßnahmen, ASHRAE 62.2-2016, Kosten gegen ACPU und H&S-Grenze |
+| `beispiele/usa_wap_musterhaus_work_order.pdf` | Work Order für die ausführende Firma: Leistungswerte, Mengen, Einheitspreise, Prüfziele, Abbruchbedingungen, Materialmengen, tägliches CAZ-Protokoll, Change Orders |
+| `beispiele/usa_wap_musterhaus_final_inspection.pdf` | Final-Inspection-Formular für den Quality Control Inspector (WPN 22-4) |
+| `weatherization/LEITFADEN.md` | Leitfaden auf Deutsch: Geldflüsse, Zahlen PY 2026, Rollen und Zertifikate, angestellt oder Subunternehmer, Ablauf |
+
+```bash
+python3 -m weatherization beispiele/usa_wap_musterhaus.json
+```
+
+Die Maßnahmen werden wie in NEAT schrittweise nach SIR gereiht (Wechselwirkungen eingerechnet), Maßnahmen
+unter SIR 1,0 fallen heraus oder laufen, wenn sie einen Sicherheitsmangel beheben, über das H&S-Budget.
+Das Modell (stündliche Einzonenbilanz, auf die Rechnungen kalibriert) ist vereinfacht; für Programmunterlagen
+gilt das vom Bundesstaat zugelassene Audit-Werkzeug.
+
 ## KI-Assistent zum Selbsthosten (ohne fremde API)
 
 `assistent/` ist eine eigene KI-Beraterin für die Website des Büros: eine Chat-Oberfläche auf

@@ -1,0 +1,311 @@
+{
+  "project": {
+    "title": "Sample Residence – Weatherization Audit",
+    "address": "45 Sample Street, Hamilton Township, NJ 08610 (fictitious)",
+    "client": "Mrs. A. Example (fictitious)",
+    "program": "New Jersey Weatherization Assistance Program (DOE WAP, PY 2026) with LIHEAP weatherization funds",
+    "agency": "[Local Weatherization Agency] – DCA subgrantee",
+    "job_no": "WX-2026-0147",
+    "audit_date": "2026-11-04",
+    "work_scheduled": "2026-12-01 to 2026-12-03",
+    "sample": true,
+    "note": "Fictitious house and household. Test results, bills, prices and costs are illustrative values, not customer data.",
+    "prepared_by": {
+      "company": "[Company Name] – Energy Auditing Services",
+      "name": "[Auditor Name]",
+      "credentials": "[BPI Home Energy Professional – Energy Auditor, cert. no.] · [EPA RRP Certified Renovator]",
+      "email": "[email]"
+    },
+    "contractor": {
+      "company": "[Weatherization Contractor LLC] – subcontractor to the agency",
+      "crew_lead": "[Crew Lead Name], [BPI Infiltration & Duct Leakage / HEP Crew Leader]",
+      "license": "[NJ Home Improvement Contractor reg. no.] · [EPA RRP Firm cert. no.]"
+    },
+    "qci": "[QCI Name], [BPI Home Energy Professional – Quality Control Inspector, cert. no.]"
+  },
+  "household": {
+    "size": 2,
+    "income_annual": 33600,
+    "income_pct_fpl": 159,
+    "limit_pct_fpl": 200,
+    "eligibility": "Income at 159 % of the HHS poverty guidelines (WAP limit 200 %); LIHEAP recipient 2025–26",
+    "priority": ["Elderly occupant (age 72)", "High energy burden"],
+    "tenure": "Owner-occupied",
+    "occupant_notes": "Occupant at home all day; bedroom AC window units used in July and August."
+  },
+  "dwelling": {
+    "type": "Single-family detached, one-story ranch over full basement",
+    "year_built": 1955,
+    "cfa": 1150,
+    "basement_area": 1150,
+    "volume": 17250,
+    "bedrooms": 3,
+    "description": "Wood frame, 2x4 walls with plaster and painted wood clapboard siding, vented attic with flat ceiling, full concrete-block basement inside the thermal boundary (furnace, water heater, laundry, sump pit). Replacement vinyl windows (1990s)."
+  },
+  "climate": {
+    "location": "Hamilton Township, NJ (Mercer County)",
+    "climate_zone": "4A",
+    "latitude": 40.2,
+    "weather": {"mean": 54.5, "amp": 21.5, "seed": 7},
+    "source": "Synthetic normal year calibrated to roughly 4,900 HDD65 (central New Jersey) – an approved audit tool uses TMY weather for the nearest station"
+  },
+  "thermostat": {"heating": 69, "cooling": 76, "note": "Occupant-reported settings, no setback"},
+  "internal_gains_btuh": 1500,
+  "windows": {"area": {"N": 36, "E": 24, "S": 60, "W": 24}, "shgc": 0.55, "desc": "Double-pane clear, vinyl frames (1990s), U ≈ 0.50"},
+  "envelope": [
+    {"id": "attic", "name": "Ceiling below vented attic", "area": 1150, "U": 0.080, "desc": "R-11 fiberglass batts between 2x6 joists, gaps and compression (≈ R-9 effective)"},
+    {"id": "walls", "name": "Above-grade walls, net", "area": 952, "U": 0.220, "desc": "2x4 @ 16\" o.c., empty cavities, plaster, board sheathing, clapboard"},
+    {"id": "windows", "name": "Windows", "area": 144, "U": 0.50, "desc": "Double-pane vinyl, 12 units"},
+    {"id": "doors", "name": "Exterior doors", "area": 40, "U": 0.40, "desc": "Wood panel front door with storm door, steel rear door"},
+    {"id": "rim", "name": "Rim / band joist", "area": 107, "U": 0.300, "desc": "2x8 rim joist, uninsulated, unsealed sill (142 ft perimeter)"},
+    {"id": "bsmt_above", "name": "Basement wall above grade", "area": 213, "U": 0.360, "desc": "8\" concrete block, uninsulated, 1.5 ft exposed"},
+    {"id": "bsmt_below", "name": "Basement wall below grade", "area": 781, "U": 0.100, "b": 0.5, "desc": "8\" concrete block, 5.5 ft below grade (ground-coupled)"},
+    {"id": "slab", "name": "Basement floor slab", "area": 1150, "U": 0.030, "b": 0.5, "desc": "Concrete slab, uninsulated (ground-coupled)"}
+  ],
+  "heating": {
+    "desc": "Gas furnace, natural draft (Category I), 80,000 Btu/h input, installed 1996, ducts in basement",
+    "efficiency": 0.78,
+    "efficiency_note": "Steady-state efficiency 78.4 % measured with combustion analyzer; nameplate AFUE 78 %",
+    "dse": 0.90,
+    "dse_note": "Ducts within the basement; leakage at plenums, takeoffs and panned returns; estimated distribution efficiency"
+  },
+  "cooling": {"desc": "Two window AC units (bedrooms), EER 9.8", "eer": 9.8, "fraction_cooled": 0.45, "min_outdoor_f": 74},
+  "dhw": {
+    "desc": "Gas storage water heater, atmospheric (natural draft), 40 gal, installed 2014, UEF 0.58, common vent with furnace",
+    "uef": 0.58, "t_hot": 125, "t_mains": 55, "t_shower": 105,
+    "shower_gpm": 2.5, "shower_minutes_per_day": 16, "other_hot_gpd": 22, "cooking_therms": 30
+  },
+  "baseload": {
+    "refrigerator": {"desc": "Top-freezer refrigerator, 18 cu ft, 1999", "metered_kwh_yr": 1180,
+                     "metering": "2-hour metering with logging plug meter, door closed, compressor cycles complete; annualized per state protocol"},
+    "lamps": [
+      {"location": "Living room (table lamps)", "n": 3, "w": 60, "hours": 4.0},
+      {"location": "Kitchen ceiling", "n": 2, "w": 75, "hours": 3.5},
+      {"location": "Hall / bath", "n": 3, "w": 60, "hours": 2.0},
+      {"location": "Basement", "n": 3, "w": 13, "hours": 1.0},
+      {"location": "Bedrooms (already LED)", "n": 4, "w": 9, "hours": 1.5}
+    ]
+  },
+  "prices": {
+    "gas_per_therm": 1.40, "elec_per_kwh": 0.23,
+    "source": "Illustrative marginal residential rates (delivery + supply) – use the client's utility tariff"
+  },
+  "economics": {
+    "discount_rate": 0.03,
+    "escalation": {"gas": 0.005, "electric": 0.0},
+    "upv_star": null,
+    "source": "3.0 % real discount rate (DOE/FEMP, NIST IR 85-3273-40, 2025). Real energy price escalation illustrative – replace with UPV-DOE factors, residential, Middle Atlantic"
+  },
+  "program": {
+    "sir_min": 1.0,
+    "acpu_limit": 8813,
+    "hs_limit_pct": 0.14,
+    "hs_waiver_above": 1500,
+    "source": "DOE WPN 26-1 (PY 2026 adjusted average $8,813); NJ PY 2026 H&S Plan: H&S average 14 % of ACPU, waiver for individual units above $1,500"
+  },
+  "bills": {
+    "source": "Utility billing history, 12 months (fictitious); HDD65 per billing period from nearest NOAA station",
+    "periods": [
+      {"period": "Nov 2025", "days": 30, "hdd65": 630, "therms": 173, "kwh": 349},
+      {"period": "Dec 2025", "days": 31, "hdd65": 751, "therms": 208, "kwh": 371},
+      {"period": "Jan 2026", "days": 31, "hdd65": 817, "therms": 223, "kwh": 374},
+      {"period": "Feb 2026", "days": 28, "hdd65": 511, "therms": 137, "kwh": 329},
+      {"period": "Mar 2026", "days": 31, "hdd65": 625, "therms": 178, "kwh": 365},
+      {"period": "Apr 2026", "days": 30, "hdd65": 392, "therms": 119, "kwh": 336},
+      {"period": "May 2026", "days": 31, "hdd65": 148, "therms": 58, "kwh": 354},
+      {"period": "Jun 2026", "days": 30, "hdd65": 25, "therms": 25, "kwh": 414},
+      {"period": "Jul 2026", "days": 31, "hdd65": 3, "therms": 17, "kwh": 476},
+      {"period": "Aug 2026", "days": 31, "hdd65": 19, "therms": 23, "kwh": 439},
+      {"period": "Sep 2026", "days": 30, "hdd65": 71, "therms": 38, "kwh": 362},
+      {"period": "Oct 2026", "days": 31, "hdd65": 324, "therms": 102, "kwh": 346}
+    ]
+  },
+  "diagnostics": {
+    "blower_door": {
+      "pre_cfm50": 3400,
+      "n_factor": 17.0,
+      "setup": "Single-point test, house depressurized to −50 Pa with reference to outside, basement door open, attic hatch closed, all exterior openings closed, combustion appliances off, ash/dust check",
+      "outdoor_f": 46, "wind": "Calm (< 5 mph)",
+      "n_factor_note": "LBL N-factor for climate zone 4, normal shielding, one story plus basement (illustrative)"
+    },
+    "caz": {
+      "zone": "Basement (furnace, water heater, dryer)",
+      "vent_group": "natural-draft furnace commonly vented with water heater",
+      "limit_pa": -3.0,
+      "base_pa": -0.4,
+      "worst_pa": -4.2,
+      "worst_case_setup": "Dryer on, bath/kitchen exhaust none present, air handler on, basement door closed (worst case found), house-to-CAZ pressure measured with manometer",
+      "appliances": [
+        {"id": "furnace", "name": "Gas furnace", "type": "furnace", "co_air_free": 38, "spillage_natural_s": 6, "spillage_worst_s": 25},
+        {"id": "wh", "name": "Gas water heater", "type": "water_heater", "co_air_free": 22, "spillage_natural_s": 12, "spillage_worst_s": 95}
+      ],
+      "cause": "Return-side duct leakage at the furnace cabinet and panned joist returns draws air out of the basement while the air handler runs."
+    },
+    "oven": {"name": "Gas range/oven", "co_ppm": 160, "note": "Measured in flue port after 5 minutes at 500 °F"},
+    "ambient_co_max": 2,
+    "gas_leaks": [
+      {"location": "Furnace gas cock union (customer side)", "reading": "Combustible gas detector 1,200 ppm at union", "action": "HS-1"}
+    ],
+    "duct": {"pressure_pan": "Supply registers 0.3–0.8 Pa, panned returns 1.9 Pa (leaky)", "note": "Ducts inside the basement; return leakage affects CAZ"},
+    "radon": {"result_pci_l": 1.6, "method": "Charcoal canister test, NJDEP protocol (48 h)", "consent": "Radon informed consent signed, EPA 'A Citizen's Guide to Radon' provided"}
+  },
+  "caz_limits": {
+    "spillage_s": 60,
+    "co_air_free": {"furnace": 400, "water_heater": 200},
+    "oven_as_measured": 225,
+    "ambient": 35,
+    "source": "Action levels as applied in this sample per ANSI/BPI-1200-S-2017 and the NJ PY 2026 H&S Plan (oven 225 ppm as measured, ambient 35 ppm); depressurization limit per the state field guide for commonly vented natural-draft appliances"
+  },
+  "ventilation_62_2": {
+    "floor_area": 1150,
+    "wsf": 0.53,
+    "height_ft": 9.5,
+    "balanced": false,
+    "window_credit_cfm": 20,
+    "local_exhaust": [
+      {"room": "Kitchen", "required_cfm": 100, "existing_cfm": 0, "openable_window": true, "note": "Range hood recirculating (not ducted)"},
+      {"room": "Bathroom", "required_cfm": 50, "existing_cfm": 0, "openable_window": true, "note": "No exhaust fan; mildew on ceiling"}
+    ],
+    "proposed_fans": {"Bathroom": 80},
+    "continuous_fan_cfm": 40,
+    "fan_desc": "ENERGY STAR bath fan, 80 cfm boost on occupancy/humidity sensor, continuous low speed 40 cfm, ducted to exterior with backdraft damper",
+    "source": "ASHRAE 62.2-2016 with Normative Appendix A (existing buildings); weather and shielding factor wsf illustrative – NJ requires the RED ASHRAE 62.2-2016 calculator with target and final blower door readings"
+  },
+  "measures": [
+    {
+      "id": "AS-1", "name": "Air sealing – attic bypasses and basement", "type": "air_sealing", "cfm50_reduction": 800, "life": 15,
+      "location": "Attic floor, basement sill and penetrations",
+      "sws": "SWS ch. 3 Air Sealing",
+      "spec": "Seal attic bypasses before insulating: top plates, plumbing stack and wiring penetrations, chimney chase (sheet metal and high-temperature sealant, maintain clearance to masonry), attic hatch weatherstrip. Basement: sill plate to foundation, utility penetrations. Guided by blower door; target listed under test targets.",
+      "lines": [
+        {"item": "Air sealing labor", "qty": 14, "unit": "crew hr", "unit_price": 78},
+        {"item": "Materials: one-part foam, caulk, rigid board, high-temp sealant, sheet metal", "qty": 1, "unit": "lot", "unit_price": 210}
+      ]
+    },
+    {
+      "id": "AI-1", "name": "Attic insulation to R-49", "type": "envelope", "component": "attic", "U_new": 0.021, "life": 25,
+      "location": "Attic floor, 1,150 ft²",
+      "sws": "SWS ch. 4 Insulation (attics)",
+      "spec": "Blow cellulose over existing batts to R-49 total, uniform depth, depth rulers every 300 ft², certificate posted at hatch. Dam and insulate hatch, baffles at every soffit bay, keep 3 in. clearance to chimney and non-IC fixtures (dam).",
+      "lines": [
+        {"item": "Blown cellulose, add R-40", "qty": 1150, "unit": "ft²", "unit_price": 1.25},
+        {"item": "Attic hatch dam and rigid foam on hatch", "qty": 1, "unit": "ea", "unit_price": 95, "irm": true},
+        {"item": "Soffit baffles", "qty": 24, "unit": "ea", "unit_price": 6, "irm": true}
+      ],
+      "materials": {"kind": "loose_fill", "added_R": 40, "r_per_inch": 3.7, "density": 1.6, "bag_lb": 25, "area": 1150}
+    },
+    {
+      "id": "WI-1", "name": "Wall insulation – dense-pack cellulose", "type": "envelope", "component": "walls", "U_new": 0.085,
+      "cfm50_reduction": 100, "life": 25,
+      "location": "All exterior walls, 952 ft² net",
+      "sws": "SWS ch. 4 Insulation (walls)",
+      "spec": "Drill-and-fill from exterior through clapboard: remove one course, drill 2-9/16\" holes into every cavity (above and below windows, check fire blocking), dense-pack cellulose at ≥ 3.5 lb/ft³, plug, reinstall siding. Verify fill with infrared scan or density check. Lead-safe work practices (see H&S).",
+      "lines": [
+        {"item": "Dense-pack cellulose, drill and fill from exterior", "qty": 952, "unit": "ft²", "unit_price": 2.35},
+        {"item": "Replace split clapboards at drill line, prime", "qty": 1, "unit": "lot", "unit_price": 120, "irm": true}
+      ],
+      "materials": {"kind": "dense_pack", "cavity_depth_in": 3.5, "framing": 0.15, "density": 3.5, "bag_lb": 25, "area": 952, "waste": 0.10}
+    },
+    {
+      "id": "RJ-1", "name": "Rim joist insulation and sealing", "type": "envelope", "component": "rim", "U_new": 0.065,
+      "cfm50_reduction": 200, "life": 25,
+      "location": "Basement rim/band joist, 142 ft perimeter",
+      "sws": "SWS ch. 4 Insulation (rim joists)",
+      "spec": "2 in. closed-cell spray foam (≈ R-13) on rim joist and sill, sealing sill-to-foundation joint. Install per manufacturer's evaluation report; thermal or ignition barrier as required by code.",
+      "lines": [{"item": "Closed-cell SPF, 2 in.", "qty": 107, "unit": "ft²", "unit_price": 4.20}],
+      "materials": {"kind": "spf", "area": 107, "thickness_in": 2}
+    },
+    {
+      "id": "DS-1", "name": "Duct sealing – supply and return in basement", "type": "dse", "dse_new": 0.94, "life": 15,
+      "location": "Basement: furnace cabinet, plenums, takeoffs, panned returns",
+      "sws": "SWS ch. 5 HVAC (duct sealing)",
+      "spec": "Seal return plenum, filter slot (cover), cabinet seams and panned joist returns with mastic and fabric; seal supply plenum and takeoffs. Re-test CAZ worst case with air handler on.",
+      "hs_fallback": "Return-side duct leakage depressurizes the CAZ (worst case −3.8 Pa against a −3.0 Pa limit, water heater spills 95 s). Sealing is required to correct the combustion safety failure.",
+      "lines": [
+        {"item": "Duct sealing labor", "qty": 6, "unit": "crew hr", "unit_price": 78},
+        {"item": "Mastic, mesh, filter slot cover", "qty": 1, "unit": "lot", "unit_price": 60}
+      ]
+    },
+    {
+      "id": "HF-1", "name": "Furnace replacement – 95 % AFUE sealed combustion", "type": "heating_eff", "eff_new": 0.95, "life": 20,
+      "location": "Basement",
+      "sws": "SWS ch. 5 HVAC",
+      "spec": "Replace 1996 natural-draft furnace with 95 % AFUE two-pipe sealed-combustion furnace sized by Manual J; line chimney for the orphaned water heater.",
+      "lines": [
+        {"item": "95 % AFUE furnace, installed, permit", "qty": 1, "unit": "ea", "unit_price": 5600},
+        {"item": "Chimney liner for orphaned water heater", "qty": 1, "unit": "ea", "unit_price": 950, "irm": true}
+      ]
+    },
+    {
+      "id": "WH-1", "name": "Low-flow showerhead 1.5 gpm", "type": "showerhead", "gpm_new": 1.5, "life": 10,
+      "location": "Bathroom", "sws": "SWS ch. 7 Baseload",
+      "spec": "WaterSense showerhead 1.5 gpm; leave old showerhead with client only on request.",
+      "lines": [{"item": "Showerhead 1.5 gpm, installed", "qty": 1, "unit": "ea", "unit_price": 48}]
+    },
+    {
+      "id": "WH-2", "name": "Water heater pipe insulation", "type": "dhw_factor", "saving_fraction": 0.03, "life": 13,
+      "location": "Basement, water heater", "sws": "SWS ch. 7 Baseload",
+      "spec": "Insulate first 6 ft of hot and cold pipe at the water heater (keep 6 in. clearance from draft hood/flue); verify setpoint 120–125 °F.",
+      "lines": [{"item": "Pipe insulation, 12 ft, installed", "qty": 1, "unit": "lot", "unit_price": 45}]
+    },
+    {
+      "id": "LT-1", "name": "LED lamps", "type": "lighting", "life": 10,
+      "location": "Living room, kitchen, hall/bath, basement", "sws": "SWS ch. 7 Baseload",
+      "spec": "Replace remaining incandescent and CFL lamps with ENERGY STAR LED of equal lumen output.",
+      "lamps": [
+        {"location": "Living room", "n": 3, "w_old": 60, "w_new": 9, "hours": 4.0},
+        {"location": "Kitchen", "n": 2, "w_old": 75, "w_new": 11, "hours": 3.5},
+        {"location": "Hall / bath", "n": 3, "w_old": 60, "w_new": 9, "hours": 2.0},
+        {"location": "Basement", "n": 3, "w_old": 13, "w_new": 9, "hours": 1.0}
+      ],
+      "lines": [
+        {"item": "LED lamps", "qty": 11, "unit": "ea", "unit_price": 4.50},
+        {"item": "Installation", "qty": 0.5, "unit": "hr", "unit_price": 78}
+      ]
+    },
+    {
+      "id": "RF-1", "name": "Refrigerator replacement (metered)", "type": "refrigerator", "kwh_new": 385, "life": 15,
+      "location": "Kitchen", "sws": "SWS ch. 7 Baseload",
+      "spec": "ENERGY STAR top-freezer, 18 cu ft, label ≤ 385 kWh/yr; haul away old unit to a certified recycler (refrigerant recovery), keep disposal receipt in client file.",
+      "lines": [
+        {"item": "ENERGY STAR refrigerator 18 cu ft, delivered", "qty": 1, "unit": "ea", "unit_price": 899},
+        {"item": "Removal and recycling of old unit", "qty": 1, "unit": "ea", "unit_price": 85}
+      ]
+    }
+  ],
+  "health_safety": [
+    {"id": "HS-1", "item": "Gas leak at furnace gas cock union", "finding": "Combustible gas detector 1,200 ppm at union, customer side of the meter",
+     "action": "HVAC technician to remake union, leak-test all furnace connections with CGD and soap solution; occupant informed in writing",
+     "sws": "SWS ch. 2 Health & Safety", "funding": "DOE WAP H&S",
+     "lines": [{"item": "Gas leak repair and re-test", "qty": 1, "unit": "ea", "unit_price": 95}]},
+    {"id": "HS-2", "item": "Dryer exhaust duct", "finding": "Vinyl foil duct crushed and partly disconnected, lint in basement (fire and moisture hazard)",
+     "action": "Install rigid metal duct, foil tape (no screws), exterior hood with damper; clean lint",
+     "sws": "SWS ch. 6 Ventilation", "funding": "DOE WAP H&S",
+     "lines": [{"item": "Dryer vent, rigid metal, exterior hood", "qty": 1, "unit": "ea", "unit_price": 165}]},
+    {"id": "HS-3", "item": "ASHRAE 62.2 ventilation – bath exhaust fan", "finding": "No bathroom exhaust, mildew on bath ceiling; local exhaust deficits kitchen and bath",
+     "action": "Install the fan described under ventilation, duct to exterior (insulated duct in attic, roof or gable cap with damper), measure flow at both speeds",
+     "sws": "SWS ch. 6 Ventilation", "funding": "DOE WAP H&S",
+     "lines": [{"item": "Bath fan with continuous/boost controls, ducting, wiring", "qty": 1, "unit": "ea", "unit_price": 585}]},
+    {"id": "HS-4", "item": "Smoke and CO alarms", "finding": "No CO alarm; hallway smoke alarm dated 2012 (beyond manufacturer's lifetime)",
+     "action": "Install combination smoke/CO alarm in the hallway outside bedrooms and a CO alarm in the basement; explain operation",
+     "sws": "SWS ch. 2 Health & Safety", "funding": "DOE WAP H&S",
+     "lines": [{"item": "Combination smoke/CO alarm, 10-yr sealed battery", "qty": 1, "unit": "ea", "unit_price": 62},
+               {"item": "CO alarm, basement", "qty": 1, "unit": "ea", "unit_price": 48}]},
+    {"id": "HS-5", "item": "Radon precautions", "finding": "Open sump pit in basement; radon test 1.6 pCi/L (below 4.0 action level)",
+     "action": "Airtight sump pit cover with sealed penetrations, seal slab cracks and floor penetrations",
+     "sws": "SWS ch. 2 Health & Safety", "funding": "DOE WAP H&S",
+     "lines": [{"item": "Airtight sump cover, sealing of floor penetrations", "qty": 1, "unit": "ea", "unit_price": 140}]},
+    {"id": "HS-6", "item": "Lead-safe work practices", "finding": "House built before 1978, painted clapboard and plaster (lead presumed)",
+     "action": "EPA RRP lead-safe practices for drilling siding and any interior disturbance: containment, HEPA cleanup, cleaning verification, records",
+     "sws": "SWS ch. 2 Health & Safety", "funding": "DOE WAP H&S",
+     "lines": [{"item": "RRP setup, containment and cleaning verification", "qty": 1, "unit": "lot", "unit_price": 180}]}
+  ],
+  "deferral_screen": [
+    ["Roof leaks / structural defects", "None observed"],
+    ["Mold / moisture", "Mildew < 10 ft² on bath ceiling – cleaned, addressed by HS-3"],
+    ["Asbestos / vermiculite", "No vermiculite in attic; duct tape is foil (no suspect ACM)"],
+    ["Knob-and-tube wiring", "None – NM cable in attic"],
+    ["Sanitation / pests", "None"],
+    ["Occupant cooperation / informed consent", "Signed; occupant agrees to ventilation"]
+  ]
+}
